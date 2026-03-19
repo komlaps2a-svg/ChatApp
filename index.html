@@ -17,7 +17,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 
     <style>
-        /* [1. APPLE CORE VARIABLES] */
+        /* APPLE CORE VARIABLES */
         :root {
             --ios-bg: #F2F2F7;
             --ios-surface: #FFFFFF;
@@ -59,7 +59,6 @@
         .hide-scrollbar::-webkit-scrollbar { display: none; }
         .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
 
-        /* [2. ADVANCED GLASSMORPHISM (iOS Control Center Style)] */
         .ios-glass {
             background-color: var(--glass-bg);
             backdrop-filter: blur(40px) saturate(200%);
@@ -74,13 +73,10 @@
             box-shadow: 0 20px 40px rgba(0,0,0,0.15), inset 0 1px 0 rgba(255,255,255,0.1);
         }
 
-        /* [3. SPRING PHYSICS ANIMATIONS] */
         .btn-press { transition: transform 0.1s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.1s; }
         .btn-press:active { transform: scale(0.92); opacity: 0.7; }
-        
         .slide-panel { transition: transform 0.4s cubic-bezier(0.32, 0.72, 0, 1); }
 
-        /* Modal Overlay & Pop */
         .overlay-enter { animation: fadeIn 0.3s ease-out forwards; }
         .modal-pop { animation: applePop 0.4s cubic-bezier(0.32, 0.72, 0, 1) forwards; }
         
@@ -90,7 +86,6 @@
             100% { transform: scale(1) translateY(0); opacity: 1; }
         }
 
-        /* Bubble Spring Animation */
         .bubble-enter { animation: msgSpring 0.5s cubic-bezier(0.32, 0.72, 0, 1) forwards; transform-origin: bottom right; opacity: 0; }
         .bubble-enter-left { animation: msgSpring 0.5s cubic-bezier(0.32, 0.72, 0, 1) forwards; transform-origin: bottom left; opacity: 0; }
         @keyframes msgSpring {
@@ -98,10 +93,8 @@
             100% { transform: scale(1) translateY(0); opacity: 1; }
         }
 
-        /* [4. iMESSAGE TAILS (Pixel Perfect)] */
         .tail-right::before { content: ''; position: absolute; bottom: 0; right: -8px; width: 20px; height: 20px; background-color: var(--ios-blue); border-bottom-left-radius: 16px; z-index: -1; }
         .tail-right::after { content: ''; position: absolute; bottom: 0; right: -10px; width: 10px; height: 20px; background-color: var(--ios-bg); border-bottom-left-radius: 10px; z-index: -1; }
-        
         .tail-left::before { content: ''; position: absolute; bottom: 0; left: -8px; width: 20px; height: 20px; background-color: var(--bubble-received); border-bottom-right-radius: 16px; z-index: -1; }
         .tail-left::after { content: ''; position: absolute; bottom: 0; left: -10px; width: 10px; height: 20px; background-color: var(--ios-bg); border-bottom-right-radius: 10px; z-index: -1; }
 
@@ -113,7 +106,7 @@
 
     <script type="text/babel">
         // ==========================================
-        // [UTILS: CRYPTOGRAPHY (WebCrypto AES-GCM)]
+        // UTILS: CRYPTOGRAPHY (WebCrypto AES-GCM)
         // ==========================================
         const CryptoUtils = {
             async generateKeypair() { return await window.crypto.subtle.generateKey({ name: "ECDH", namedCurve: "P-256" }, true, ["deriveKey", "deriveBits"]); },
@@ -135,7 +128,7 @@
                     const data = new Uint8Array(encryptedPayload.data);
                     const decrypted = await window.crypto.subtle.decrypt({ name: "AES-GCM", iv: iv }, sharedKey, data);
                     return new TextDecoder().decode(decrypted);
-                } catch (e) { return "🔒 [Decryption Error]"; }
+                } catch (e) { return "🔒 [Decryption Error / Key Mismatch]"; }
             }
         };
 
@@ -167,16 +160,23 @@
         };
 
         // ==========================================
-        // [HARDCODED FIREBASE CONFIG] (Sesuai Permintaan)
+        // HYBRID CONFIGURATION (Sandbox vs External)
+        // Memastikan kode berfungsi baik di AI preview maupun di GitHub Pages lu.
         // ==========================================
-        const firebaseConfig = {
-            apiKey: "AIzaSyCftdtKP4vYY9DQSWwWkFoKXv-ceWh12WQ",
-            authDomain: "ghost-chat-e2ee.firebaseapp.com",
-            projectId: "ghost-chat-e2ee",
-            storageBucket: "ghost-chat-e2ee.firebasestorage.app",
-            messagingSenderId: "951286040813",
-            appId: "1:951286040813:web:5f848f381cdcedaa6de4e4",
-            measurementId: "G-R0HVVNY1L2"
+        const isCanvasEnv = typeof __firebase_config !== 'undefined' && __firebase_config;
+        const APP_ID = typeof __app_id !== 'undefined' ? __app_id : 'ghost-chat-e2ee-app';
+        
+        const getFirebaseConfig = () => {
+            if (isCanvasEnv) return JSON.parse(__firebase_config);
+            return {
+                apiKey: "AIzaSyCftdtKP4vYY9DQSWwWkFoKXv-ceWh12WQ",
+                authDomain: "ghost-chat-e2ee.firebaseapp.com",
+                projectId: "ghost-chat-e2ee",
+                storageBucket: "ghost-chat-e2ee.firebasestorage.app",
+                messagingSenderId: "951286040813",
+                appId: "1:951286040813:web:5f848f381cdcedaa6de4e4",
+                measurementId: "G-R0HVVNY1L2"
+            };
         };
 
         const App = () => {
@@ -193,8 +193,7 @@
             const [searchQuery, setSearchQuery] = React.useState('');
             const [inputText, setInputText] = React.useState('');
             
-            // UI State Modals
-            const [activeModal, setActiveModal] = React.useState(null); // 'profile' | 'add' | null
+            const [activeModal, setActiveModal] = React.useState(null);
             const [addCodeInput, setAddCodeInput] = React.useState("");
             const [addStatus, setAddStatus] = React.useState("");
 
@@ -205,8 +204,10 @@
             const qrRef = React.useRef(null);
             const messagesEndRef = React.useRef(null);
 
-            // [1. BOOT SEQUENCE]
+            // [1. BOOT SEQUENCE & AUTH]
             React.useEffect(() => {
+                let unsubscribeAuth = null;
+                
                 const initSystem = async () => {
                     try {
                         const importModule = new Function('url', 'return import(url)');
@@ -214,37 +215,40 @@
                         const fbAuth = await importModule('https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js');
                         const fbDb = await importModule('https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js');
                         
-                        const app = !fbApp.getApps().length ? fbApp.initializeApp(firebaseConfig) : fbApp.getApp();
+                        const config = getFirebaseConfig();
+                        const app = !fbApp.getApps().length ? fbApp.initializeApp(config) : fbApp.getApp();
                         const auth = fbAuth.getAuth(app);
                         const db = fbDb.getFirestore(app);
 
                         setFbModules({ auth, db, fbAuth, fbDb });
                         
-                        try {
+                        // Menambal bug Auth: Utamakan Custom Token di Sandbox, fallback ke Anonymous
+                        if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                            await fbAuth.signInWithCustomToken(auth, __initial_auth_token);
+                        } else {
                             await fbAuth.signInAnonymously(auth);
-                        } catch (e) {
-                            throw new Error(`Auth ditolak oleh Firebase. Pastikan Anonymous Provider aktif.`);
                         }
 
-                        fbAuth.onAuthStateChanged(auth, async (u) => {
+                        unsubscribeAuth = fbAuth.onAuthStateChanged(auth, async (u) => {
                             if (u) {
                                 setUser(u);
                                 const localId = await LocalDB.getIdentity();
                                 if (localId) setIdentity(localId);
+                                setFbReady(true);
+                            } else {
+                                setUser(null);
                             }
                         });
-                        setFbReady(true);
                     } catch (err) { 
-                        setSysError(err.message);
+                        setSysError(`Boot sequence terhenti. Gagal inisiasi Firebase: ${err.message}`);
                     }
                 };
                 initSystem();
+                return () => { if (unsubscribeAuth) unsubscribeAuth(); };
             }, []);
 
-            // Auto Scroll
             React.useEffect(() => { messagesEndRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages, decryptedCache, activeChat]);
 
-            // QR Code Generator
             React.useEffect(() => {
                 if (activeModal === 'profile' && identity && qrRef.current) {
                     qrRef.current.innerHTML = "";
@@ -254,30 +258,49 @@
 
             // [2. PRESENCE WORKER]
             React.useEffect(() => {
-                if (!fbModules || !user || !identity) return;
+                if (!fbReady || !fbModules || !user || !identity) return;
                 const { db, fbDb } = fbModules;
+                
+                // Menggunakan strict paths untuk kompatibilitas database terisolasi
+                const userDocRef = fbDb.doc(db, 'artifacts', APP_ID, 'public', 'data', 'users', identity.code);
+                
                 const updatePresence = async (isOnline) => {
-                    try { await fbDb.updateDoc(fbDb.doc(db, 'users', identity.code), { isOnline, lastSeen: Date.now() }); } catch(e) {}
+                    try { 
+                        await fbDb.setDoc(userDocRef, { isOnline, lastSeen: Date.now() }, { merge: true }); 
+                    } catch(e) {
+                        console.warn("Presence update failed", e);
+                    }
                 };
+                
                 const interval = setInterval(() => updatePresence(true), 25000);
                 updatePresence(true);
+                
                 const handleUnload = () => updatePresence(false);
                 window.addEventListener("beforeunload", handleUnload);
+                
                 return () => { clearInterval(interval); window.removeEventListener("beforeunload", handleUnload); };
-            }, [fbModules, user, identity]);
+            }, [fbReady, fbModules, user, identity]);
 
             // [3. CHAT WORKER (REALTIME DB)]
             React.useEffect(() => {
-                if (!fbModules || !user || !identity || !activeChat) return;
+                if (!fbReady || !fbModules || !user || !identity || !activeChat) return;
                 const { db, fbDb } = fbModules;
 
-                const unsubFriend = fbDb.onSnapshot(fbDb.doc(db, 'users', activeChat.code), (snap) => {
+                const friendDocRef = fbDb.doc(db, 'artifacts', APP_ID, 'public', 'data', 'users', activeChat.code);
+                
+                // Menambal celah: Wajib ada error callback untuk deteksi putus koneksi/rules fail
+                const unsubFriend = fbDb.onSnapshot(friendDocRef, (snap) => {
                     if (snap.exists()) setFriendStatus(snap.data());
+                }, (error) => {
+                    console.error("Presence sync blocked:", error);
                 });
 
                 const chatId = [identity.code, activeChat.code].sort().join('_');
-                const unsubChat = fbDb.onSnapshot(fbDb.collection(db, `chats_${chatId}`), async (snapshot) => {
+                const chatColRef = fbDb.collection(db, 'artifacts', APP_ID, 'public', 'data', `chats_${chatId}`);
+                
+                const unsubChat = fbDb.onSnapshot(chatColRef, async (snapshot) => {
                     const msgs = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+                    // Client-side sorting mematuhi aturan query sederhana tanpa index kompleks
                     msgs.sort((a, b) => a.timestamp - b.timestamp);
                     setMessages(msgs);
 
@@ -293,15 +316,17 @@
                         }
                     }
                     if (changed) setDecryptedCache(newDecrypted);
+                }, (error) => {
+                    setSysError(`Koneksi Obrolan Terputus: ${error.message}`);
                 });
 
                 return () => { unsubFriend(); unsubChat(); };
-            }, [fbModules, user, identity, activeChat]);
+            }, [fbReady, fbModules, user, identity, activeChat]);
 
             // [ACTIONS]
             const handleSetup = async (e) => {
                 e.preventDefault();
-                if (!setupName.trim() || !fbModules) return;
+                if (!setupName.trim() || !fbModules || !user) return;
 
                 const code = Array.from(window.crypto.getRandomValues(new Uint8Array(4))).map(b => b.toString(16).padStart(2, '0')).join('').toUpperCase();
                 const keypair = await CryptoUtils.generateKeypair();
@@ -310,60 +335,74 @@
                 await LocalDB.saveIdentity(code, keypair.privateKey, pubJWK, setupName.trim());
                 
                 const { db, fbDb } = fbModules;
-                await fbDb.setDoc(fbDb.doc(db, 'users', code), {
-                    code, displayName: setupName.trim(), publicKeyJWK: pubJWK, isOnline: true, lastSeen: Date.now()
-                });
-
-                setIdentity({ code, privateKey: keypair.privateKey, publicKeyJWK: pubJWK, displayName: setupName.trim() });
+                const userDocRef = fbDb.doc(db, 'artifacts', APP_ID, 'public', 'data', 'users', code);
+                
+                try {
+                    await fbDb.setDoc(userDocRef, {
+                        code, displayName: setupName.trim(), publicKeyJWK: pubJWK, isOnline: true, lastSeen: Date.now()
+                    });
+                    setIdentity({ code, privateKey: keypair.privateKey, publicKeyJWK: pubJWK, displayName: setupName.trim() });
+                } catch (error) {
+                    setSysError("Gagal meregistrasi identitas di server.");
+                }
             };
 
             const processAddFriend = async (e) => {
                 e.preventDefault();
                 setAddStatus("Memverifikasi Kunci...");
-                if (!addCodeInput.trim() || !fbModules) return;
+                if (!addCodeInput.trim() || !fbModules || !user) return;
                 const code = addCodeInput.trim().toUpperCase();
                 
-                if (code === identity.code) return setAddStatus("Anda tidak bisa menambahkan ID sendiri.");
-                if (friends.find(f => f.code === code)) return setAddStatus("Kontak sudah terdaftar.");
+                if (code === identity.code) return setAddStatus("Batal. Ini adalah ID lokal lu.");
+                if (friends.find(f => f.code === code)) return setAddStatus("Kontak sudah ada dalam matriks.");
 
                 const { db, fbDb } = fbModules;
+                const userDocRef = fbDb.doc(db, 'artifacts', APP_ID, 'public', 'data', 'users', code);
+                
                 try {
-                    const snap = await fbDb.getDoc(fbDb.doc(db, 'users', code));
+                    const snap = await fbDb.getDoc(userDocRef);
                     if (snap.exists()) {
                         setFriends(prev => [...prev, snap.data()]);
-                        setAddStatus("Berhasil dipasangkan.");
+                        setAddStatus("Handshake berhasil. Terenkripsi.");
                         setTimeout(() => { setActiveModal(null); setAddCodeInput(""); setAddStatus(""); }, 800);
                     } else {
-                        setAddStatus("ID tidak ditemukan di server.");
+                        setAddStatus("Identitas tidak ditemukan.");
                     }
-                } catch (err) { setAddStatus("Kesalahan jaringan."); }
+                } catch (err) { 
+                    setAddStatus("Jaringan terputus/ditolak."); 
+                }
             };
 
             const handleSend = async (e) => {
                 e.preventDefault();
-                if (!inputText.trim() || !activeChat || !fbModules) return;
+                if (!inputText.trim() || !activeChat || !fbModules || !user) return;
                 const text = inputText.trim();
                 setInputText("");
 
-                const sharedSecret = await CryptoUtils.deriveSharedSecret(identity.privateKey, activeChat.publicKeyJWK);
-                const encryptedPayload = await CryptoUtils.encryptText(text, sharedSecret);
+                try {
+                    const sharedSecret = await CryptoUtils.deriveSharedSecret(identity.privateKey, activeChat.publicKeyJWK);
+                    const encryptedPayload = await CryptoUtils.encryptText(text, sharedSecret);
 
-                const { db, fbDb } = fbModules;
-                const chatId = [identity.code, activeChat.code].sort().join('_');
-                
-                await fbDb.addDoc(fbDb.collection(db, `chats_${chatId}`), {
-                    sender: identity.code, timestamp: Date.now(), payload: encryptedPayload, status: 'sent'
-                });
+                    const { db, fbDb } = fbModules;
+                    const chatId = [identity.code, activeChat.code].sort().join('_');
+                    const chatColRef = fbDb.collection(db, 'artifacts', APP_ID, 'public', 'data', `chats_${chatId}`);
+                    
+                    await fbDb.addDoc(chatColRef, {
+                        sender: identity.code, timestamp: Date.now(), payload: encryptedPayload, status: 'sent'
+                    });
+                } catch (error) {
+                    console.error("Gagal mengirim pesan enkripsi", error);
+                }
             };
 
             const formatTime = (ts) => new Date(ts).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
 
-            // [UI: FATAL ERROR]
+            // [UI RENDERING]
             if (sysError) return (
                 <div className="h-screen flex items-center justify-center p-6 bg-black text-white">
                     <div className="text-center w-full max-w-sm">
                         <i className="ph-fill ph-warning-circle text-5xl mb-4 text-red-500"></i>
-                        <h1 className="text-xl font-bold mb-2 font-[SF Pro Display]">Koneksi Terputus</h1>
+                        <h1 className="text-xl font-bold mb-2 font-[SF Pro Display]">CRITICAL SYSTEM FAILURE</h1>
                         <div className="bg-red-900/30 border border-red-500/30 p-4 rounded-2xl text-left text-xs font-mono text-red-400 mt-4 break-words">
                             {sysError}
                         </div>
@@ -371,14 +410,12 @@
                 </div>
             );
 
-            // [UI: BOOTING]
             if (!fbReady) return (
                 <div className="h-screen flex flex-col items-center justify-center bg-[var(--ios-bg)]">
                     <i className="ph ph-spinner-gap animate-spin text-3xl mb-4 text-[var(--ios-text-secondary)]"></i>
                 </div>
             );
 
-            // [UI: APPLE SETUP SCREEN]
             if (!identity) return (
                 <div className="h-screen flex items-center justify-center p-4 bg-[var(--ios-bg)]">
                     <div className="w-full max-w-sm text-center">
@@ -387,7 +424,7 @@
                         </div>
                         <h1 className="text-[28px] font-bold mb-2 tracking-tight">Ghost Protocol</h1>
                         <p className="text-[15px] mb-8 leading-relaxed px-4" style={{ color: 'var(--ios-text-secondary)' }}>
-                            Pesan Anda dienkripsi dari ujung ke ujung. Tidak ada tautan ke nomor telepon.
+                            Pesan terenkripsi End-to-End. Data tidak disimpan dalam bentuk teks terang.
                         </p>
                         <form onSubmit={handleSetup} className="space-y-4 px-2">
                             <div className="bg-[var(--ios-surface)] rounded-[14px] p-1 shadow-sm">
@@ -407,15 +444,12 @@
 
             const filteredFriends = friends.filter(f => f.displayName.toLowerCase().includes(searchQuery.toLowerCase()));
 
-            // [UI: MAIN APPLICATION]
             return (
                 <div className="flex h-screen w-full overflow-hidden relative">
-                    
-                    {/* [MODAL SYSTEM (Apple iOS Modal Sheet Simulation)] */}
+                    {/* MODAL SYSTEM */}
                     {activeModal && (
                         <div className="absolute inset-0 z-50 flex items-center justify-center p-4 overlay-enter bg-black/40">
                             <div className="ios-modal-glass modal-pop w-full max-w-sm rounded-[32px] p-8 flex flex-col items-center text-center relative shadow-2xl">
-                                {/* Close Button iOS Style */}
                                 <button onClick={() => setActiveModal(null)} className="absolute top-4 right-4 w-8 h-8 flex items-center justify-center bg-[var(--ios-gray-bg)] rounded-full btn-press text-[var(--ios-text-secondary)]">
                                     <i className="ph-bold ph-x text-sm"></i>
                                 </button>
@@ -430,24 +464,24 @@
                                             <p className="text-[15px] font-mono tracking-[0.2em] font-bold" style={{ color: 'var(--ios-blue)' }}>{identity.code}</p>
                                         </div>
                                         <div className="bg-white p-4 rounded-[24px] shadow-sm mb-4"><div ref={qrRef}></div></div>
-                                        <p className="text-[13px]" style={{ color: 'var(--ios-text-secondary)' }}>Berikan kode ini untuk memulai obrolan E2EE.</p>
+                                        <p className="text-[13px]" style={{ color: 'var(--ios-text-secondary)' }}>Berikan kode identitas ini untuk validasi *handshake*.</p>
                                     </>
                                 ) : (
                                     <div className="w-full">
                                         <div className="w-14 h-14 mx-auto bg-blue-500/10 rounded-full flex items-center justify-center mb-4">
                                             <i className="ph-fill ph-user-plus text-2xl" style={{ color: 'var(--ios-blue)' }}></i>
                                         </div>
-                                        <h3 className="font-bold text-[22px] mb-2 tracking-tight">Tambah Kontak</h3>
-                                        <p className="text-[14px] mb-6" style={{ color: 'var(--ios-text-secondary)' }}>Masukkan 8 digit ID kriptografis.</p>
+                                        <h3 className="font-bold text-[22px] mb-2 tracking-tight">Koneksi Baru</h3>
+                                        <p className="text-[14px] mb-6" style={{ color: 'var(--ios-text-secondary)' }}>Masukkan 8 digit hash kriptografis.</p>
                                         <form onSubmit={processAddFriend}>
                                             <input 
-                                                type="text" placeholder="ID Teman" required maxLength="8"
+                                                type="text" placeholder="ID Target" required maxLength="8"
                                                 value={addCodeInput} onChange={e => setAddCodeInput(e.target.value)}
                                                 className="w-full bg-[var(--ios-gray-bg)] border-transparent text-center font-mono text-xl tracking-widest px-4 py-3.5 rounded-[14px] outline-none mb-2 uppercase font-bold"
                                             />
-                                            {addStatus && <p className={`text-[13px] text-center mb-4 font-medium ${addStatus.includes("Berhasil") ? "text-green-500" : "text-red-500"}`}>{addStatus}</p>}
+                                            {addStatus && <p className={`text-[13px] text-center mb-4 font-medium ${addStatus.includes("berhasil") ? "text-green-500" : "text-red-500"}`}>{addStatus}</p>}
                                             <button type="submit" className="w-full text-white font-semibold py-3.5 rounded-[14px] btn-press text-[17px] mt-2" style={{ backgroundColor: 'var(--ios-blue)' }}>
-                                                Hubungkan
+                                                Inisiasi Handshake
                                             </button>
                                         </form>
                                     </div>
@@ -456,11 +490,10 @@
                         </div>
                     )}
 
-                    {/* [MASTER VIEW: Sidebar / List] */}
+                    {/* SIDEBAR LIST */}
                     <div className={`w-full md:w-[380px] flex-shrink-0 flex flex-col border-r border-[var(--ios-separator)] transition-transform z-10 
                         ${activeChat ? '-translate-x-full md:translate-x-0 absolute md:relative h-full' : 'translate-x-0 relative h-full'}`}>
                         
-                        {/* iOS Header Glass */}
                         <div className="ios-glass px-4 pt-12 pb-3 sticky top-0 z-20">
                             <div className="flex justify-between items-center mb-4">
                                 <h1 className="text-[34px] font-bold tracking-tight leading-none">Pesan</h1>
@@ -473,7 +506,6 @@
                                     </button>
                                 </div>
                             </div>
-                            {/* iOS Search Bar */}
                             <div className="relative">
                                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none opacity-50"><i className="ph-bold ph-magnifying-glass"></i></div>
                                 <input 
@@ -483,12 +515,11 @@
                             </div>
                         </div>
 
-                        {/* List Area */}
                         <div className="flex-1 overflow-y-auto hide-scrollbar bg-[var(--ios-bg)]">
                             {filteredFriends.length === 0 ? (
                                 <div className="p-10 text-center flex flex-col items-center mt-10" style={{ color: 'var(--ios-text-secondary)' }}>
                                     <i className="ph-fill ph-chat-teardrop text-5xl mb-3 opacity-30"></i>
-                                    <p className="text-[15px]">Tidak ada pesan.</p>
+                                    <p className="text-[15px]">Data kosong.</p>
                                 </div>
                             ) : (
                                 filteredFriends.map((friend, idx) => (
@@ -512,13 +543,12 @@
                         </div>
                     </div>
 
-                    {/* [DETAIL VIEW: Chat Area] */}
+                    {/* CHAT AREA */}
                     <div className={`flex-1 flex flex-col bg-[var(--ios-bg)] slide-panel absolute md:relative w-full h-full z-20 
                         ${activeChat ? 'translate-x-0' : 'translate-x-full md:translate-x-0'}`}>
                         
                         {activeChat ? (
                             <React.Fragment>
-                                {/* Chat Header */}
                                 <div className="ios-glass px-2 pt-[3.2rem] pb-2 flex items-center justify-between sticky top-0 z-30">
                                     <div className="flex items-center">
                                         <button onClick={() => setActiveChat(null)} className="md:hidden flex items-center py-2 pr-2 btn-press" style={{ color: 'var(--ios-blue)' }}>
@@ -540,17 +570,16 @@
                                     <div className="p-2" style={{ color: 'var(--ios-blue)' }}><i className="ph-fill ph-video-camera text-2xl opacity-50"></i></div>
                                 </div>
 
-                                {/* Messages View */}
                                 <div className="flex-1 overflow-y-auto px-4 py-4 flex flex-col gap-[2px] hide-scrollbar relative">
                                     <div className="text-center my-6">
-                                        <span className="text-[11px] font-bold uppercase tracking-widest" style={{ color: 'var(--ios-text-secondary)' }}>Ghost Protocol Active</span>
+                                        <span className="text-[11px] font-bold uppercase tracking-widest" style={{ color: 'var(--ios-text-secondary)' }}>E2EE Session Active</span>
                                     </div>
 
                                     {messages.map((msg, index, arr) => {
                                         const isMe = msg.sender === identity.code;
                                         const nextMsg = arr[index + 1];
                                         const isLastInGroup = index === arr.length - 1 || (nextMsg && nextMsg.sender !== msg.sender);
-                                        const text = decryptedCache[msg.id] || "...";
+                                        const text = decryptedCache[msg.id] || "Mendekripsi...";
 
                                         return (
                                             <div key={msg.id} className={`flex w-full ${isMe ? 'justify-end' : 'justify-start'} ${isLastInGroup ? 'mb-4' : ''}`}>
@@ -572,7 +601,6 @@
                                     <div ref={messagesEndRef} className="h-4"></div>
                                 </div>
 
-                                {/* Chat Input Box */}
                                 <div className="ios-glass p-2 pb-8 md:pb-4 z-30 flex items-end gap-3">
                                     <button type="button" className="p-2 mb-0.5 btn-press text-[var(--ios-text-secondary)]"><i className="ph-bold ph-plus text-[24px]"></i></button>
                                     <form onSubmit={handleSend} className="flex-1 relative mb-0.5">
