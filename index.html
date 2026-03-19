@@ -3,11 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <meta name="theme-color" content="#f2f2f7" media="(prefers-color-scheme: light)">
-    <meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)">
+    <meta name="theme-color" content="#000000">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <title>Ghost iMessage</title>
+    <title>Ghost Protocol</title>
     
     <script src="https://cdn.tailwindcss.com"></script>
     <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
@@ -17,88 +16,40 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 
     <style>
-        /* APPLE CORE VARIABLES */
         :root {
-            --ios-bg: #F2F2F7;
-            --ios-surface: #FFFFFF;
-            --ios-blue: #007AFF;
-            --ios-gray-bg: rgba(118, 118, 128, 0.12);
-            --ios-separator: rgba(60, 60, 67, 0.29);
-            --ios-text: #000000;
-            --ios-text-secondary: rgba(60, 60, 67, 0.6);
-            --glass-bg: rgba(255, 255, 255, 0.65);
-            --modal-bg: rgba(255, 255, 255, 0.85);
-            --bubble-received: #E9E9EB;
-        }
-
-        @media (prefers-color-scheme: dark) {
-            :root {
-                --ios-bg: #000000;
-                --ios-surface: #1C1C1E;
-                --ios-blue: #0A84FF;
-                --ios-gray-bg: rgba(118, 118, 128, 0.24);
-                --ios-separator: rgba(84, 84, 88, 0.65);
-                --ios-text: #FFFFFF;
-                --ios-text-secondary: rgba(235, 235, 245, 0.6);
-                --glass-bg: rgba(28, 28, 30, 0.65);
-                --modal-bg: rgba(30, 30, 30, 0.85);
-                --bubble-received: #262628;
-            }
+            --bg-dark: #000000;
+            --surface: #1C1C1E;
+            --primary: #0A84FF;
+            --text-main: #FFFFFF;
+            --text-muted: rgba(235, 235, 245, 0.6);
+            --border: rgba(84, 84, 88, 0.65);
+            --danger: #FF453A;
         }
 
         body {
-            font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Helvetica Neue", Arial, sans-serif;
-            background-color: var(--ios-bg);
-            color: var(--ios-text);
+            font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", Arial, sans-serif;
+            background-color: var(--bg-dark);
+            color: var(--text-main);
             overscroll-behavior-y: none;
             -webkit-font-smoothing: antialiased;
-            -webkit-tap-highlight-color: transparent;
             user-select: none;
         }
 
         .hide-scrollbar::-webkit-scrollbar { display: none; }
         .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
 
-        .ios-glass {
-            background-color: var(--glass-bg);
+        .glass-panel {
+            background-color: rgba(28, 28, 30, 0.7);
             backdrop-filter: blur(40px) saturate(200%);
             -webkit-backdrop-filter: blur(40px) saturate(200%);
-            border-bottom: 0.5px solid var(--ios-separator);
-        }
-
-        .ios-modal-glass {
-            background-color: var(--modal-bg);
-            backdrop-filter: blur(50px) saturate(200%);
-            -webkit-backdrop-filter: blur(50px) saturate(200%);
-            box-shadow: 0 20px 40px rgba(0,0,0,0.15), inset 0 1px 0 rgba(255,255,255,0.1);
         }
 
         .btn-press { transition: transform 0.1s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.1s; }
-        .btn-press:active { transform: scale(0.92); opacity: 0.7; }
-        .slide-panel { transition: transform 0.4s cubic-bezier(0.32, 0.72, 0, 1); }
-
-        .overlay-enter { animation: fadeIn 0.3s ease-out forwards; }
-        .modal-pop { animation: applePop 0.4s cubic-bezier(0.32, 0.72, 0, 1) forwards; }
-        
-        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
-        @keyframes applePop {
-            0% { transform: scale(0.9) translateY(20px); opacity: 0; }
-            100% { transform: scale(1) translateY(0); opacity: 1; }
-        }
-
-        .bubble-enter { animation: msgSpring 0.5s cubic-bezier(0.32, 0.72, 0, 1) forwards; transform-origin: bottom right; opacity: 0; }
-        .bubble-enter-left { animation: msgSpring 0.5s cubic-bezier(0.32, 0.72, 0, 1) forwards; transform-origin: bottom left; opacity: 0; }
-        @keyframes msgSpring {
-            0% { transform: scale(0.85) translateY(10px); opacity: 0; }
-            100% { transform: scale(1) translateY(0); opacity: 1; }
-        }
-
-        .tail-right::before { content: ''; position: absolute; bottom: 0; right: -8px; width: 20px; height: 20px; background-color: var(--ios-blue); border-bottom-left-radius: 16px; z-index: -1; }
-        .tail-right::after { content: ''; position: absolute; bottom: 0; right: -10px; width: 10px; height: 20px; background-color: var(--ios-bg); border-bottom-left-radius: 10px; z-index: -1; }
-        .tail-left::before { content: ''; position: absolute; bottom: 0; left: -8px; width: 20px; height: 20px; background-color: var(--bubble-received); border-bottom-right-radius: 16px; z-index: -1; }
-        .tail-left::after { content: ''; position: absolute; bottom: 0; left: -10px; width: 10px; height: 20px; background-color: var(--ios-bg); border-bottom-right-radius: 10px; z-index: -1; }
+        .btn-press:active { transform: scale(0.95); opacity: 0.8; }
+        .btn-disabled { opacity: 0.5; cursor: not-allowed; }
 
         input, textarea { user-select: auto; }
+        .selectable-text { user-select: all; -webkit-user-select: all; }
     </style>
 </head>
 <body>
@@ -106,12 +57,22 @@
 
     <script type="text/babel">
         // ==========================================
-        // UTILS: CRYPTOGRAPHY (WebCrypto AES-GCM)
+        // [UTILS] CRYPTO ENGINE (WebCrypto API)
+        // DILARANG MENGGUNAKAN LIBRARY EKSTERNAL UNTUK E2EE.
         // ==========================================
         const CryptoUtils = {
-            async generateKeypair() { return await window.crypto.subtle.generateKey({ name: "ECDH", namedCurve: "P-256" }, true, ["deriveKey", "deriveBits"]); },
-            async exportPublicKey(key) { return await window.crypto.subtle.exportKey("jwk", key); },
-            async importPublicKey(jwk) { return await window.crypto.subtle.importKey("jwk", jwk, { name: "ECDH", namedCurve: "P-256" }, true, []); },
+            async generateKeypair() { 
+                return await window.crypto.subtle.generateKey({ name: "ECDH", namedCurve: "P-256" }, true, ["deriveKey", "deriveBits"]); 
+            },
+            async exportKeyJWK(key) { 
+                return await window.crypto.subtle.exportKey("jwk", key); 
+            },
+            async importPublicKey(jwk) { 
+                return await window.crypto.subtle.importKey("jwk", jwk, { name: "ECDH", namedCurve: "P-256" }, true, []); 
+            },
+            async importPrivateKey(jwk) { 
+                return await window.crypto.subtle.importKey("jwk", jwk, { name: "ECDH", namedCurve: "P-256" }, true, ["deriveKey", "deriveBits"]); 
+            },
             async deriveSharedSecret(privateKey, publicKeyJWK) {
                 const publicKey = await this.importPublicKey(publicKeyJWK);
                 return await window.crypto.subtle.deriveKey({ name: "ECDH", public: publicKey }, privateKey, { name: "AES-GCM", length: 256 }, false, ["encrypt", "decrypt"]);
@@ -128,43 +89,60 @@
                     const data = new Uint8Array(encryptedPayload.data);
                     const decrypted = await window.crypto.subtle.decrypt({ name: "AES-GCM", iv: iv }, sharedKey, data);
                     return new TextDecoder().decode(decrypted);
-                } catch (e) { return "🔒 [Decryption Error / Key Mismatch]"; }
+                } catch (e) { return "🔒 [Decryption Failed: Key Mismatch]"; }
             }
         };
 
+        // ==========================================
+        // [UTILS] STORAGE LAYER
+        // ==========================================
         const LocalDB = {
             async init() {
                 return new Promise((resolve, reject) => {
-                    const req = indexedDB.open("AppleGhostDB", 1);
-                    req.onupgradeneeded = e => e.target.result.createObjectStore("identity", { keyPath: "id" });
+                    const req = indexedDB.open("GhostProtocolDB", 2);
+                    req.onupgradeneeded = e => {
+                        if(e.oldVersion < 2) {
+                            try { e.target.result.deleteObjectStore("identity"); } catch(err){}
+                            e.target.result.createObjectStore("identity", { keyPath: "id" });
+                        }
+                    };
                     req.onsuccess = e => resolve(e.target.result);
                     req.onerror = e => reject(e);
                 });
             },
-            async saveIdentity(code, privateKey, publicKeyJWK, displayName) {
+            async saveIdentity(code, privateKeyJWK, publicKeyJWK, displayName) {
                 const db = await this.init();
-                return new Promise((resolve) => {
+                return new Promise((resolve, reject) => {
                     const tx = db.transaction("identity", "readwrite");
-                    tx.objectStore("identity").put({ id: "me", code, privateKey, publicKeyJWK, displayName });
+                    tx.objectStore("identity").put({ id: "active", code, privateKeyJWK, publicKeyJWK, displayName });
                     tx.oncomplete = () => resolve();
+                    tx.onerror = () => reject(tx.error);
                 });
             },
             async getIdentity() {
                 const db = await this.init();
                 return new Promise((resolve) => {
                     if (!db.objectStoreNames.contains("identity")) return resolve(null);
-                    const req = db.transaction("identity", "readonly").objectStore("identity").get("me");
+                    const req = db.transaction("identity", "readonly").objectStore("identity").get("active");
                     req.onsuccess = () => resolve(req.result);
+                    req.onerror = () => resolve(null);
+                });
+            },
+            async wipeData() {
+                const db = await this.init();
+                return new Promise((resolve) => {
+                    const tx = db.transaction("identity", "readwrite");
+                    tx.objectStore("identity").clear();
+                    tx.oncomplete = () => resolve();
                 });
             }
         };
 
         // ==========================================
-        // HYBRID CONFIGURATION (Sandbox vs External)
-        // Memastikan kode berfungsi baik di AI preview maupun di GitHub Pages lu.
+        // [CONFIG] HYBRID FIREBASE
         // ==========================================
         const isCanvasEnv = typeof __firebase_config !== 'undefined' && __firebase_config;
-        const APP_ID = typeof __app_id !== 'undefined' ? __app_id : 'ghost-chat-e2ee-app';
+        const APP_ID = typeof __app_id !== 'undefined' ? __app_id : 'ghost-chat-e2ee';
         
         const getFirebaseConfig = () => {
             if (isCanvasEnv) return JSON.parse(__firebase_config);
@@ -174,42 +152,53 @@
                 projectId: "ghost-chat-e2ee",
                 storageBucket: "ghost-chat-e2ee.firebasestorage.app",
                 messagingSenderId: "951286040813",
-                appId: "1:951286040813:web:5f848f381cdcedaa6de4e4",
-                measurementId: "G-R0HVVNY1L2"
+                appId: "1:951286040813:web:5f848f381cdcedaa6de4e4"
             };
         };
 
+        // ==========================================
+        // [MAIN] REACT APPLICATION
+        // ==========================================
         const App = () => {
+            // System State
             const [fbReady, setFbReady] = React.useState(false);
             const [fbModules, setFbModules] = React.useState(null);
-            const [sysError, setSysError] = React.useState(null);
-            
             const [user, setUser] = React.useState(null);
-            const [identity, setIdentity] = React.useState(null);
+            
+            // UI State
+            const [sysError, setSysError] = React.useState(null);
+            const [loadingState, setLoadingState] = React.useState("");
+            const [authView, setAuthView] = React.useState("choice"); // choice | register | login | key_reveal | main
+            
+            // App State
+            const [identity, setIdentity] = React.useState(null); // { code, privateKey (CryptoKey), pubJWK, name }
             const [friends, setFriends] = React.useState([]);
             const [activeChat, setActiveChat] = React.useState(null);
-            
+            const [messages, setMessages] = React.useState([]);
+            const [decryptedCache, setDecryptedCache] = React.useState({});
+
+            // Inputs
             const [setupName, setSetupName] = React.useState("");
-            const [searchQuery, setSearchQuery] = React.useState('');
+            const [recoveryKeyInput, setRecoveryKeyInput] = React.useState("");
+            const [generatedRecoveryKey, setGeneratedRecoveryKey] = React.useState("");
             const [inputText, setInputText] = React.useState('');
             
-            const [activeModal, setActiveModal] = React.useState(null);
+            // Modals
+            const [activeModal, setActiveModal] = React.useState(null); // profile | add | null
             const [addCodeInput, setAddCodeInput] = React.useState("");
             const [addStatus, setAddStatus] = React.useState("");
 
-            const [messages, setMessages] = React.useState([]);
-            const [friendStatus, setFriendStatus] = React.useState(null);
-            const [decryptedCache, setDecryptedCache] = React.useState({});
-
-            const qrRef = React.useRef(null);
             const messagesEndRef = React.useRef(null);
+            const qrRef = React.useRef(null);
 
-            // [1. BOOT SEQUENCE & AUTH]
+            // ------------------------------------------
+            // 1. BOOT & AUTHENTICATION
+            // ------------------------------------------
             React.useEffect(() => {
                 let unsubscribeAuth = null;
-                
                 const initSystem = async () => {
                     try {
+                        setLoadingState("Connecting to Backend...");
                         const importModule = new Function('url', 'return import(url)');
                         const fbApp = await importModule('https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js');
                         const fbAuth = await importModule('https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js');
@@ -222,7 +211,6 @@
 
                         setFbModules({ auth, db, fbAuth, fbDb });
                         
-                        // Menambal bug Auth: Utamakan Custom Token di Sandbox, fallback ke Anonymous
                         if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
                             await fbAuth.signInWithCustomToken(auth, __initial_auth_token);
                         } else {
@@ -232,75 +220,53 @@
                         unsubscribeAuth = fbAuth.onAuthStateChanged(auth, async (u) => {
                             if (u) {
                                 setUser(u);
-                                const localId = await LocalDB.getIdentity();
-                                if (localId) setIdentity(localId);
+                                setLoadingState("Checking Local Identity...");
+                                const localData = await LocalDB.getIdentity();
+                                if (localData) {
+                                    // Re-hydrate CryptoKey from JWK
+                                    try {
+                                        const privKey = await CryptoUtils.importPrivateKey(localData.privateKeyJWK);
+                                        setIdentity({
+                                            code: localData.code,
+                                            privateKey: privKey,
+                                            publicKeyJWK: localData.publicKeyJWK,
+                                            displayName: localData.displayName
+                                        });
+                                        setAuthView("main");
+                                    } catch (e) {
+                                        setSysError("Kunci lokal korup. Harap re-login menggunakan Recovery Key.");
+                                        await LocalDB.wipeData();
+                                    }
+                                }
                                 setFbReady(true);
+                                setLoadingState("");
                             } else {
                                 setUser(null);
                             }
                         });
                     } catch (err) { 
-                        setSysError(`Boot sequence terhenti. Gagal inisiasi Firebase: ${err.message}`);
+                        setSysError(`BOOT_FAILED: ${err.message}`);
                     }
                 };
                 initSystem();
                 return () => { if (unsubscribeAuth) unsubscribeAuth(); };
             }, []);
 
-            React.useEffect(() => { messagesEndRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages, decryptedCache, activeChat]);
+            // Auto-scroll
+            React.useEffect(() => { messagesEndRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages, decryptedCache]);
 
+            // Realtime Chat Worker
             React.useEffect(() => {
-                if (activeModal === 'profile' && identity && qrRef.current) {
-                    qrRef.current.innerHTML = "";
-                    new QRCode(qrRef.current, { text: identity.code, width: 140, height: 140, colorDark : "#000", colorLight : "#fff", correctLevel : QRCode.CorrectLevel.H });
-                }
-            }, [activeModal, identity]);
-
-            // [2. PRESENCE WORKER]
-            React.useEffect(() => {
-                if (!fbReady || !fbModules || !user || !identity) return;
+                if (!fbReady || !identity || !activeChat || authView !== "main") return;
                 const { db, fbDb } = fbModules;
-                
-                // Menggunakan strict paths untuk kompatibilitas database terisolasi
-                const userDocRef = fbDb.doc(db, 'artifacts', APP_ID, 'public', 'data', 'users', identity.code);
-                
-                const updatePresence = async (isOnline) => {
-                    try { 
-                        await fbDb.setDoc(userDocRef, { isOnline, lastSeen: Date.now() }, { merge: true }); 
-                    } catch(e) {
-                        console.warn("Presence update failed", e);
-                    }
-                };
-                
-                const interval = setInterval(() => updatePresence(true), 25000);
-                updatePresence(true);
-                
-                const handleUnload = () => updatePresence(false);
-                window.addEventListener("beforeunload", handleUnload);
-                
-                return () => { clearInterval(interval); window.removeEventListener("beforeunload", handleUnload); };
-            }, [fbReady, fbModules, user, identity]);
-
-            // [3. CHAT WORKER (REALTIME DB)]
-            React.useEffect(() => {
-                if (!fbReady || !fbModules || !user || !identity || !activeChat) return;
-                const { db, fbDb } = fbModules;
-
-                const friendDocRef = fbDb.doc(db, 'artifacts', APP_ID, 'public', 'data', 'users', activeChat.code);
-                
-                // Menambal celah: Wajib ada error callback untuk deteksi putus koneksi/rules fail
-                const unsubFriend = fbDb.onSnapshot(friendDocRef, (snap) => {
-                    if (snap.exists()) setFriendStatus(snap.data());
-                }, (error) => {
-                    console.error("Presence sync blocked:", error);
-                });
 
                 const chatId = [identity.code, activeChat.code].sort().join('_');
-                const chatColRef = fbDb.collection(db, 'artifacts', APP_ID, 'public', 'data', `chats_${chatId}`);
+                const chatPath = isCanvasEnv 
+                    ? fbDb.collection(db, 'artifacts', APP_ID, 'public', 'data', `chats_${chatId}`)
+                    : fbDb.collection(db, `chats_${chatId}`);
                 
-                const unsubChat = fbDb.onSnapshot(chatColRef, async (snapshot) => {
+                const unsubChat = fbDb.onSnapshot(chatPath, async (snapshot) => {
                     const msgs = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
-                    // Client-side sorting mematuhi aturan query sederhana tanpa index kompleks
                     msgs.sort((a, b) => a.timestamp - b.timestamp);
                     setMessages(msgs);
 
@@ -310,72 +276,134 @@
 
                     for (let msg of msgs) {
                         if (!newDecrypted[msg.id]) {
-                            const cleartext = await CryptoUtils.decryptText(msg.payload, sharedSecret);
-                            newDecrypted[msg.id] = cleartext;
+                            newDecrypted[msg.id] = await CryptoUtils.decryptText(msg.payload, sharedSecret);
                             changed = true;
                         }
                     }
                     if (changed) setDecryptedCache(newDecrypted);
-                }, (error) => {
-                    setSysError(`Koneksi Obrolan Terputus: ${error.message}`);
-                });
+                }, (error) => setSysError(`SYNC_ERROR: ${error.message}`));
 
-                return () => { unsubFriend(); unsubChat(); };
-            }, [fbReady, fbModules, user, identity, activeChat]);
+                return () => unsubChat();
+            }, [fbReady, identity, activeChat, authView]);
 
-            // [ACTIONS]
-            const handleSetup = async (e) => {
+            // ------------------------------------------
+            // 2. CORE LOGIC: REGISTRATION (New Account)
+            // ------------------------------------------
+            const handleRegister = async (e) => {
                 e.preventDefault();
                 if (!setupName.trim() || !fbModules || !user) return;
+                setLoadingState("Generating Keys...");
 
-                const code = Array.from(window.crypto.getRandomValues(new Uint8Array(4))).map(b => b.toString(16).padStart(2, '0')).join('').toUpperCase();
-                const keypair = await CryptoUtils.generateKeypair();
-                const pubJWK = await CryptoUtils.exportPublicKey(keypair.publicKey);
-                
-                await LocalDB.saveIdentity(code, keypair.privateKey, pubJWK, setupName.trim());
-                
-                const { db, fbDb } = fbModules;
-                const userDocRef = fbDb.doc(db, 'artifacts', APP_ID, 'public', 'data', 'users', code);
-                
                 try {
+                    // 1. Generate Public ID & Keys
+                    const code = Array.from(window.crypto.getRandomValues(new Uint8Array(4))).map(b => b.toString(16).padStart(2, '0')).join('').toUpperCase();
+                    const keypair = await CryptoUtils.generateKeypair();
+                    
+                    const pubJWK = await CryptoUtils.exportKeyJWK(keypair.publicKey);
+                    const privJWK = await CryptoUtils.exportKeyJWK(keypair.privateKey);
+                    
+                    // 2. Build Recovery Key (Export Format)
+                    const recoveryObj = { c: code, p: privJWK, pu: pubJWK, n: setupName.trim() };
+                    const rKey = "GHOST-" + btoa(JSON.stringify(recoveryObj));
+                    setGeneratedRecoveryKey(rKey);
+
+                    // 3. Save to LocalDB
+                    await LocalDB.saveIdentity(code, privJWK, pubJWK, setupName.trim());
+                    
+                    // 4. Save to Firestore (Public Directory)
+                    const { db, fbDb } = fbModules;
+                    const userDocRef = isCanvasEnv 
+                        ? fbDb.doc(db, 'artifacts', APP_ID, 'public', 'data', 'users', code)
+                        : fbDb.doc(db, 'users', code);
+                    
                     await fbDb.setDoc(userDocRef, {
-                        code, displayName: setupName.trim(), publicKeyJWK: pubJWK, isOnline: true, lastSeen: Date.now()
+                        code, displayName: setupName.trim(), publicKeyJWK: pubJWK, createdAt: Date.now()
                     });
+
+                    // 5. Update State
                     setIdentity({ code, privateKey: keypair.privateKey, publicKeyJWK: pubJWK, displayName: setupName.trim() });
-                } catch (error) {
-                    setSysError("Gagal meregistrasi identitas di server.");
+                    setAuthView("key_reveal");
+                } catch (err) {
+                    setSysError(`REGISTRATION_FAILED: ${err.message}`);
+                } finally {
+                    setLoadingState("");
                 }
             };
 
+            // ------------------------------------------
+            // 3. CORE LOGIC: LOGIN (Restore Account)
+            // ------------------------------------------
+            const handleRestore = async (e) => {
+                e.preventDefault();
+                if (!recoveryKeyInput.trim() || !fbModules || !user) return;
+                setLoadingState("Decrypting Local Key...");
+
+                try {
+                    // 1. Parse Key
+                    const base64str = recoveryKeyInput.replace("GHOST-", "");
+                    const parsed = JSON.parse(atob(base64str));
+                    
+                    if (!parsed.c || !parsed.p || !parsed.pu) throw new Error("Format Key tidak valid.");
+
+                    // 2. Re-hydrate Private Key
+                    const privKey = await CryptoUtils.importPrivateKey(parsed.p);
+
+                    // 3. Save to Local DB
+                    await LocalDB.saveIdentity(parsed.c, parsed.p, parsed.pu, parsed.n);
+
+                    // 4. Enter Main App
+                    setIdentity({ code: parsed.c, privateKey: privKey, publicKeyJWK: parsed.pu, displayName: parsed.n });
+                    setAuthView("main");
+                } catch (err) {
+                    alert("Kunci Recovery tidak valid atau rusak.");
+                } finally {
+                    setLoadingState("");
+                }
+            };
+
+            // ------------------------------------------
+            // 4. CORE LOGIC: LOGOUT
+            // ------------------------------------------
+            const handleLogout = async () => {
+                if(!confirm("PERINGATAN: Logout akan menghapus kredensial kriptografi dari perangkat ini. Pastikan Anda telah menyimpan Private Recovery Key. Lanjutkan?")) return;
+                await LocalDB.wipeData();
+                setIdentity(null);
+                setActiveChat(null);
+                setAuthView("choice");
+                setActiveModal(null);
+            };
+
+            // ------------------------------------------
+            // 5. CORE LOGIC: MESSAGING & FRIENDS
+            // ------------------------------------------
             const processAddFriend = async (e) => {
                 e.preventDefault();
-                setAddStatus("Memverifikasi Kunci...");
-                if (!addCodeInput.trim() || !fbModules || !user) return;
+                setAddStatus("Verifying ID...");
                 const code = addCodeInput.trim().toUpperCase();
                 
-                if (code === identity.code) return setAddStatus("Batal. Ini adalah ID lokal lu.");
-                if (friends.find(f => f.code === code)) return setAddStatus("Kontak sudah ada dalam matriks.");
+                if (code === identity.code) return setAddStatus("ERR: Cannot add self.");
+                if (friends.find(f => f.code === code)) return setAddStatus("ERR: Contact exists.");
 
                 const { db, fbDb } = fbModules;
-                const userDocRef = fbDb.doc(db, 'artifacts', APP_ID, 'public', 'data', 'users', code);
+                const userDocRef = isCanvasEnv 
+                    ? fbDb.doc(db, 'artifacts', APP_ID, 'public', 'data', 'users', code)
+                    : fbDb.doc(db, 'users', code);
                 
                 try {
                     const snap = await fbDb.getDoc(userDocRef);
                     if (snap.exists()) {
                         setFriends(prev => [...prev, snap.data()]);
-                        setAddStatus("Handshake berhasil. Terenkripsi.");
-                        setTimeout(() => { setActiveModal(null); setAddCodeInput(""); setAddStatus(""); }, 800);
+                        setAddStatus("SUCCESS");
+                        setTimeout(() => { setActiveModal(null); setAddCodeInput(""); setAddStatus(""); }, 500);
                     } else {
-                        setAddStatus("Identitas tidak ditemukan.");
+                        setAddStatus("ERR: ID not found.");
                     }
-                } catch (err) { 
-                    setAddStatus("Jaringan terputus/ditolak."); 
-                }
+                } catch (err) { setAddStatus("ERR: Network blocked."); }
             };
 
             const handleSend = async (e) => {
                 e.preventDefault();
-                if (!inputText.trim() || !activeChat || !fbModules || !user) return;
+                if (!inputText.trim() || !activeChat || !fbModules) return;
                 const text = inputText.trim();
                 setInputText("");
 
@@ -385,103 +413,179 @@
 
                     const { db, fbDb } = fbModules;
                     const chatId = [identity.code, activeChat.code].sort().join('_');
-                    const chatColRef = fbDb.collection(db, 'artifacts', APP_ID, 'public', 'data', `chats_${chatId}`);
+                    const chatPath = isCanvasEnv 
+                        ? fbDb.collection(db, 'artifacts', APP_ID, 'public', 'data', `chats_${chatId}`)
+                        : fbDb.collection(db, `chats_${chatId}`);
                     
-                    await fbDb.addDoc(chatColRef, {
+                    await fbDb.addDoc(chatPath, {
                         sender: identity.code, timestamp: Date.now(), payload: encryptedPayload, status: 'sent'
                     });
-                } catch (error) {
-                    console.error("Gagal mengirim pesan enkripsi", error);
-                }
+                } catch (error) { console.error(error); alert("Gagal enkripsi pesan."); }
             };
 
-            const formatTime = (ts) => new Date(ts).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
 
-            // [UI RENDERING]
+            // ==========================================
+            // [VIEW] ERROR FALLBACK
+            // ==========================================
             if (sysError) return (
                 <div className="h-screen flex items-center justify-center p-6 bg-black text-white">
                     <div className="text-center w-full max-w-sm">
-                        <i className="ph-fill ph-warning-circle text-5xl mb-4 text-red-500"></i>
-                        <h1 className="text-xl font-bold mb-2 font-[SF Pro Display]">CRITICAL SYSTEM FAILURE</h1>
-                        <div className="bg-red-900/30 border border-red-500/30 p-4 rounded-2xl text-left text-xs font-mono text-red-400 mt-4 break-words">
+                        <i className="ph-fill ph-warning-circle text-5xl mb-4 text-[var(--danger)]"></i>
+                        <h1 className="text-xl font-bold mb-2">CRITICAL EXCEPTION</h1>
+                        <div className="bg-red-900/30 border border-red-500/30 p-4 rounded-xl text-left text-xs font-mono text-red-400 mt-4 break-words">
                             {sysError}
+                        </div>
+                        <button onClick={() => window.location.reload()} className="mt-6 w-full py-3 bg-[var(--surface)] rounded-xl font-bold">Hard Reboot</button>
+                    </div>
+                </div>
+            );
+
+            if (!fbReady || loadingState) return (
+                <div className="h-screen flex flex-col items-center justify-center bg-[var(--bg-dark)]">
+                    <i className="ph ph-spinner-gap animate-spin text-3xl mb-4 text-[var(--primary)]"></i>
+                    <p className="text-[var(--text-muted)] text-sm font-mono">{loadingState || "Booting System..."}</p>
+                </div>
+            );
+
+            // ==========================================
+            // [VIEW] AUTH ROUTER (Choice -> Register/Login -> Reveal)
+            // ==========================================
+            if (authView === "choice") return (
+                <div className="h-screen flex items-center justify-center p-6 bg-[var(--bg-dark)]">
+                    <div className="w-full max-w-sm text-center">
+                        <div className="w-20 h-20 mx-auto bg-blue-500/10 rounded-2xl flex items-center justify-center mb-6">
+                            <i className="ph-fill ph-shield-check text-4xl text-[var(--primary)]"></i>
+                        </div>
+                        <h1 className="text-3xl font-bold mb-2 tracking-tight text-white">Ghost Protocol</h1>
+                        <p className="text-sm mb-10 text-[var(--text-muted)]">Otentikasi Kriptografis Tanpa Nomor Telepon.</p>
+                        
+                        <div className="space-y-4">
+                            <button onClick={() => setAuthView("register")} className="w-full py-3.5 rounded-xl font-bold bg-[var(--primary)] text-white btn-press">
+                                Buat Identitas Baru
+                            </button>
+                            <button onClick={() => setAuthView("login")} className="w-full py-3.5 rounded-xl font-bold bg-[var(--surface)] text-white btn-press">
+                                Login via Recovery Key
+                            </button>
                         </div>
                     </div>
                 </div>
             );
 
-            if (!fbReady) return (
-                <div className="h-screen flex flex-col items-center justify-center bg-[var(--ios-bg)]">
-                    <i className="ph ph-spinner-gap animate-spin text-3xl mb-4 text-[var(--ios-text-secondary)]"></i>
-                </div>
-            );
-
-            if (!identity) return (
-                <div className="h-screen flex items-center justify-center p-4 bg-[var(--ios-bg)]">
-                    <div className="w-full max-w-sm text-center">
-                        <div className="w-20 h-20 mx-auto bg-blue-500/10 rounded-[22px] flex items-center justify-center mb-6">
-                            <i className="ph-fill ph-shield-check text-4xl" style={{ color: 'var(--ios-blue)' }}></i>
-                        </div>
-                        <h1 className="text-[28px] font-bold mb-2 tracking-tight">Ghost Protocol</h1>
-                        <p className="text-[15px] mb-8 leading-relaxed px-4" style={{ color: 'var(--ios-text-secondary)' }}>
-                            Pesan terenkripsi End-to-End. Data tidak disimpan dalam bentuk teks terang.
-                        </p>
-                        <form onSubmit={handleSetup} className="space-y-4 px-2">
-                            <div className="bg-[var(--ios-surface)] rounded-[14px] p-1 shadow-sm">
-                                <input 
-                                    type="text" required placeholder="Nama Samaran" maxLength="20"
-                                    className="w-full bg-transparent text-center px-4 py-3 outline-none font-medium text-[17px]"
-                                    value={setupName} onChange={e => setSetupName(e.target.value)}
-                                />
-                            </div>
-                            <button type="submit" className="w-full text-white font-semibold py-3.5 rounded-[14px] btn-press text-[17px]" style={{ backgroundColor: 'var(--ios-blue)' }}>
-                                Lanjutkan
+            if (authView === "register") return (
+                <div className="h-screen flex items-center justify-center p-6 bg-[var(--bg-dark)] relative">
+                    <button onClick={() => setAuthView("choice")} className="absolute top-6 left-6 text-[var(--primary)] flex items-center">
+                        <i className="ph-bold ph-caret-left text-2xl"></i> Batal
+                    </button>
+                    <div className="w-full max-w-sm">
+                        <h2 className="text-2xl font-bold mb-2">Identitas Publik</h2>
+                        <p className="text-sm mb-6 text-[var(--text-muted)]">Nama ini akan terlihat oleh kontak Anda.</p>
+                        <form onSubmit={handleRegister}>
+                            <input 
+                                type="text" required placeholder="Nama Samaran" maxLength="20"
+                                className="w-full bg-[var(--surface)] text-white px-4 py-4 rounded-xl outline-none mb-4 font-bold text-center"
+                                value={setupName} onChange={e => setSetupName(e.target.value)}
+                            />
+                            <button type="submit" disabled={!setupName.trim()} className={`w-full py-3.5 rounded-xl font-bold bg-[var(--primary)] text-white btn-press ${!setupName.trim() ? 'btn-disabled' : ''}`}>
+                                Generate RSA Keys
                             </button>
                         </form>
                     </div>
                 </div>
             );
 
-            const filteredFriends = friends.filter(f => f.displayName.toLowerCase().includes(searchQuery.toLowerCase()));
+            if (authView === "login") return (
+                <div className="h-screen flex items-center justify-center p-6 bg-[var(--bg-dark)] relative">
+                    <button onClick={() => setAuthView("choice")} className="absolute top-6 left-6 text-[var(--primary)] flex items-center">
+                        <i className="ph-bold ph-caret-left text-2xl"></i> Batal
+                    </button>
+                    <div className="w-full max-w-sm">
+                        <h2 className="text-2xl font-bold mb-2">Restore Session</h2>
+                        <p className="text-sm mb-6 text-[var(--text-muted)]">Masukkan Private Recovery Key Anda yang diawali dengan "GHOST-".</p>
+                        <form onSubmit={handleRestore}>
+                            <textarea 
+                                required placeholder="GHOST-xxxxxx..." rows="4"
+                                className="w-full bg-[var(--surface)] text-[12px] font-mono text-green-400 px-4 py-3 rounded-xl outline-none mb-4 resize-none break-all"
+                                value={recoveryKeyInput} onChange={e => setRecoveryKeyInput(e.target.value)}
+                            />
+                            <button type="submit" disabled={!recoveryKeyInput.trim()} className={`w-full py-3.5 rounded-xl font-bold bg-[var(--primary)] text-white btn-press ${!recoveryKeyInput.trim() ? 'btn-disabled' : ''}`}>
+                                Dekripsi & Masuk
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            );
 
+            if (authView === "key_reveal") return (
+                <div className="h-screen flex items-center justify-center p-6 bg-[var(--bg-dark)]">
+                    <div className="w-full max-w-sm text-center">
+                        <i className="ph-fill ph-warning text-4xl text-yellow-500 mb-4"></i>
+                        <h2 className="text-xl font-bold mb-2">Simpan Recovery Key</h2>
+                        <p className="text-xs mb-4 text-[var(--text-muted)]">Jika Anda logout atau pindah perangkat, ini adalah <b>SATU-SATUNYA CARA</b> untuk memulihkan akun dan membaca pesan Anda. Kami tidak menyimpannya di server.</p>
+                        
+                        <div className="bg-[var(--surface)] p-4 rounded-xl mb-6 text-left relative">
+                            <div className="text-[10px] font-mono text-green-400 break-all selectable-text max-h-[150px] overflow-y-auto">
+                                {generatedRecoveryKey}
+                            </div>
+                        </div>
+
+                        <button onClick={() => {
+                            navigator.clipboard.writeText(generatedRecoveryKey).catch(() => {});
+                            setAuthView("main");
+                        }} className="w-full py-3.5 rounded-xl font-bold bg-[var(--primary)] text-white btn-press">
+                            Saya Sudah Menyalinnya
+                        </button>
+                    </div>
+                </div>
+            );
+
+
+            // ==========================================
+            // [VIEW] MAIN APPLICATION
+            // ==========================================
             return (
                 <div className="flex h-screen w-full overflow-hidden relative">
+                    
                     {/* MODAL SYSTEM */}
                     {activeModal && (
-                        <div className="absolute inset-0 z-50 flex items-center justify-center p-4 overlay-enter bg-black/40">
-                            <div className="ios-modal-glass modal-pop w-full max-w-sm rounded-[32px] p-8 flex flex-col items-center text-center relative shadow-2xl">
-                                <button onClick={() => setActiveModal(null)} className="absolute top-4 right-4 w-8 h-8 flex items-center justify-center bg-[var(--ios-gray-bg)] rounded-full btn-press text-[var(--ios-text-secondary)]">
+                        <div className="absolute inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+                            <div className="bg-[var(--surface)] w-full max-w-sm rounded-[28px] p-6 flex flex-col items-center text-center relative border border-[var(--border)]">
+                                <button onClick={() => setActiveModal(null)} className="absolute top-4 right-4 w-8 h-8 flex items-center justify-center bg-white/10 rounded-full btn-press">
                                     <i className="ph-bold ph-x text-sm"></i>
                                 </button>
                                 
                                 {activeModal === 'profile' ? (
                                     <>
-                                        <div className="w-20 h-20 rounded-full bg-gradient-to-tr from-blue-500 to-cyan-400 flex items-center justify-center text-white font-bold text-3xl mb-4 shadow-sm">
+                                        <div className="w-16 h-16 rounded-full bg-gradient-to-tr from-blue-500 to-cyan-400 flex items-center justify-center text-white font-bold text-2xl mb-4">
                                             {identity.displayName.charAt(0).toUpperCase()}
                                         </div>
-                                        <h3 className="font-bold text-[22px] mb-1 tracking-tight">{identity.displayName}</h3>
-                                        <div className="bg-[var(--ios-gray-bg)] px-5 py-2 rounded-full mb-8 flex items-center gap-2">
-                                            <p className="text-[15px] font-mono tracking-[0.2em] font-bold" style={{ color: 'var(--ios-blue)' }}>{identity.code}</p>
+                                        <h3 className="font-bold text-xl mb-1">{identity.displayName}</h3>
+                                        <div className="bg-black/50 px-4 py-2 rounded-lg mb-6 border border-white/10">
+                                            <p className="text-xs text-[var(--text-muted)] mb-1">Public ID (Share this to chat)</p>
+                                            <p className="text-lg font-mono tracking-widest text-[var(--primary)] font-bold">{identity.code}</p>
                                         </div>
-                                        <div className="bg-white p-4 rounded-[24px] shadow-sm mb-4"><div ref={qrRef}></div></div>
-                                        <p className="text-[13px]" style={{ color: 'var(--ios-text-secondary)' }}>Berikan kode identitas ini untuk validasi *handshake*.</p>
+                                        
+                                        <div className="w-full space-y-2 mt-4">
+                                            <button onClick={() => alert("Fitur backup sedang dibangun. Catat string GHOST- yang diberikan saat registrasi.")} className="w-full py-3 rounded-xl bg-white/5 font-semibold text-sm btn-press">
+                                                Backup Recovery Key
+                                            </button>
+                                            <button onClick={handleLogout} className="w-full py-3 rounded-xl bg-red-500/10 text-[var(--danger)] font-bold text-sm btn-press border border-red-500/20">
+                                                Log Out / Hapus Data
+                                            </button>
+                                        </div>
                                     </>
                                 ) : (
                                     <div className="w-full">
-                                        <div className="w-14 h-14 mx-auto bg-blue-500/10 rounded-full flex items-center justify-center mb-4">
-                                            <i className="ph-fill ph-user-plus text-2xl" style={{ color: 'var(--ios-blue)' }}></i>
-                                        </div>
-                                        <h3 className="font-bold text-[22px] mb-2 tracking-tight">Koneksi Baru</h3>
-                                        <p className="text-[14px] mb-6" style={{ color: 'var(--ios-text-secondary)' }}>Masukkan 8 digit hash kriptografis.</p>
+                                        <h3 className="font-bold text-xl mb-2 mt-2">New Connection</h3>
+                                        <p className="text-sm mb-6 text-[var(--text-muted)]">Input 8-digit Public ID</p>
                                         <form onSubmit={processAddFriend}>
                                             <input 
-                                                type="text" placeholder="ID Target" required maxLength="8"
+                                                type="text" required maxLength="8"
                                                 value={addCodeInput} onChange={e => setAddCodeInput(e.target.value)}
-                                                className="w-full bg-[var(--ios-gray-bg)] border-transparent text-center font-mono text-xl tracking-widest px-4 py-3.5 rounded-[14px] outline-none mb-2 uppercase font-bold"
+                                                className="w-full bg-black/50 border border-white/10 text-center font-mono text-xl tracking-widest px-4 py-3 rounded-xl outline-none mb-4 uppercase text-white"
                                             />
-                                            {addStatus && <p className={`text-[13px] text-center mb-4 font-medium ${addStatus.includes("berhasil") ? "text-green-500" : "text-red-500"}`}>{addStatus}</p>}
-                                            <button type="submit" className="w-full text-white font-semibold py-3.5 rounded-[14px] btn-press text-[17px] mt-2" style={{ backgroundColor: 'var(--ios-blue)' }}>
-                                                Inisiasi Handshake
+                                            {addStatus && <p className={`text-xs text-center mb-4 ${addStatus.includes("SUCCESS") ? "text-green-500" : "text-[var(--danger)]"}`}>{addStatus}</p>}
+                                            <button type="submit" className="w-full font-bold py-3.5 rounded-xl btn-press text-[var(--bg-dark)] bg-white">
+                                                Initiate Handshake
                                             </button>
                                         </form>
                                     </div>
@@ -490,52 +594,41 @@
                         </div>
                     )}
 
-                    {/* SIDEBAR LIST */}
-                    <div className={`w-full md:w-[380px] flex-shrink-0 flex flex-col border-r border-[var(--ios-separator)] transition-transform z-10 
+                    {/* SIDEBAR */}
+                    <div className={`w-full md:w-[320px] lg:w-[380px] flex-shrink-0 flex flex-col border-r border-[var(--border)] transition-transform z-10 
                         ${activeChat ? '-translate-x-full md:translate-x-0 absolute md:relative h-full' : 'translate-x-0 relative h-full'}`}>
                         
-                        <div className="ios-glass px-4 pt-12 pb-3 sticky top-0 z-20">
+                        <div className="glass-panel px-4 pt-10 pb-3 sticky top-0 z-20">
                             <div className="flex justify-between items-center mb-4">
-                                <h1 className="text-[34px] font-bold tracking-tight leading-none">Pesan</h1>
-                                <div className="flex gap-1">
-                                    <button onClick={() => setActiveModal('profile')} className="w-9 h-9 rounded-full flex items-center justify-center bg-[var(--ios-gray-bg)] btn-press">
-                                        <i className="ph-bold ph-qr-code text-[18px]" style={{ color: 'var(--ios-blue)' }}></i>
+                                <h1 className="text-3xl font-bold tracking-tight">Chats</h1>
+                                <div className="flex gap-2">
+                                    <button onClick={() => setActiveModal('profile')} className="w-9 h-9 rounded-full flex items-center justify-center bg-[var(--surface)] btn-press border border-white/10">
+                                        <i className="ph-fill ph-gear text-[18px] text-[var(--primary)]"></i>
                                     </button>
-                                    <button onClick={() => setActiveModal('add')} className="w-9 h-9 rounded-full flex items-center justify-center bg-[var(--ios-gray-bg)] btn-press">
-                                        <i className="ph-bold ph-pencil-simple text-[18px]" style={{ color: 'var(--ios-blue)' }}></i>
+                                    <button onClick={() => setActiveModal('add')} className="w-9 h-9 rounded-full flex items-center justify-center bg-[var(--surface)] btn-press border border-white/10">
+                                        <i className="ph-bold ph-plus text-[18px] text-[var(--primary)]"></i>
                                     </button>
                                 </div>
-                            </div>
-                            <div className="relative">
-                                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none opacity-50"><i className="ph-bold ph-magnifying-glass"></i></div>
-                                <input 
-                                    type="text" placeholder="Cari" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)}
-                                    className="w-full bg-[var(--ios-gray-bg)] rounded-[10px] py-1.5 pl-9 pr-4 text-[17px] focus:outline-none transition-all placeholder-gray-500"
-                                />
                             </div>
                         </div>
 
-                        <div className="flex-1 overflow-y-auto hide-scrollbar bg-[var(--ios-bg)]">
-                            {filteredFriends.length === 0 ? (
-                                <div className="p-10 text-center flex flex-col items-center mt-10" style={{ color: 'var(--ios-text-secondary)' }}>
-                                    <i className="ph-fill ph-chat-teardrop text-5xl mb-3 opacity-30"></i>
-                                    <p className="text-[15px]">Data kosong.</p>
+                        <div className="flex-1 overflow-y-auto hide-scrollbar p-2">
+                            {friends.length === 0 ? (
+                                <div className="text-center mt-10 text-[var(--text-muted)]">
+                                    <p className="text-sm">No encrypted sessions.</p>
                                 </div>
                             ) : (
-                                filteredFriends.map((friend, idx) => (
-                                    <div key={friend.code} onClick={() => setActiveChat(friend)} className="cursor-pointer">
-                                        <div className={`flex items-center gap-3 pl-4 transition-colors ${activeChat?.code === friend.code ? 'bg-[var(--ios-gray-bg)]' : 'active:bg-[var(--ios-gray-bg)]'}`}>
-                                            <div className="w-[52px] h-[52px] rounded-full bg-gradient-to-tr from-blue-500 to-cyan-400 flex items-center justify-center text-white font-bold text-xl flex-shrink-0">
-                                                {friend.displayName.charAt(0).toUpperCase()}
-                                            </div>
-                                            <div className={`flex-1 min-w-0 py-3 pr-4 ${idx !== filteredFriends.length - 1 && activeChat?.code !== friend.code ? 'border-b border-[var(--ios-separator)]' : ''}`}>
-                                                <div className="flex justify-between items-baseline mb-0.5">
-                                                    <h3 className="font-semibold text-[17px] truncate">{friend.displayName}</h3>
-                                                </div>
-                                                <p className="text-[15px] truncate" style={{ color: 'var(--ios-text-secondary)' }}>
-                                                    E2EE Terkunci • {friend.code}
-                                                </p>
-                                            </div>
+                                friends.map((friend) => (
+                                    <div key={friend.code} onClick={() => setActiveChat(friend)} 
+                                        className={`cursor-pointer p-3 rounded-xl mb-1 flex items-center gap-3 transition-colors ${activeChat?.code === friend.code ? 'bg-[var(--primary)] text-white' : 'hover:bg-white/5'}`}>
+                                        <div className="w-12 h-12 rounded-full bg-white/10 flex items-center justify-center font-bold text-lg flex-shrink-0">
+                                            {friend.displayName.charAt(0).toUpperCase()}
+                                        </div>
+                                        <div className="flex-1 min-w-0">
+                                            <h3 className="font-semibold text-base truncate">{friend.displayName}</h3>
+                                            <p className={`text-xs truncate ${activeChat?.code === friend.code ? 'text-blue-100' : 'text-[var(--text-muted)]'}`}>
+                                                Public ID: {friend.code}
+                                            </p>
                                         </div>
                                     </div>
                                 ))
@@ -544,56 +637,37 @@
                     </div>
 
                     {/* CHAT AREA */}
-                    <div className={`flex-1 flex flex-col bg-[var(--ios-bg)] slide-panel absolute md:relative w-full h-full z-20 
+                    <div className={`flex-1 flex flex-col slide-panel absolute md:relative w-full h-full z-20 bg-black
                         ${activeChat ? 'translate-x-0' : 'translate-x-full md:translate-x-0'}`}>
                         
                         {activeChat ? (
                             <React.Fragment>
-                                <div className="ios-glass px-2 pt-[3.2rem] pb-2 flex items-center justify-between sticky top-0 z-30">
-                                    <div className="flex items-center">
-                                        <button onClick={() => setActiveChat(null)} className="md:hidden flex items-center py-2 pr-2 btn-press" style={{ color: 'var(--ios-blue)' }}>
-                                            <i className="ph-bold ph-caret-left text-[28px] -ml-1"></i>
-                                            <span className="text-[17px] -ml-1">Pesan</span>
-                                        </button>
-                                        <div className="flex items-center gap-2 ml-1 md:ml-4">
-                                            <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-blue-500 to-cyan-400 flex items-center justify-center text-white font-bold text-xs">
-                                                {activeChat.displayName.charAt(0).toUpperCase()}
-                                            </div>
-                                            <div className="flex flex-col">
-                                                <span className="font-semibold text-[13px] leading-tight">{activeChat.displayName}</span>
-                                                <span className="text-[11px] leading-tight" style={{ color: 'var(--ios-text-secondary)' }}>
-                                                    {friendStatus?.isOnline ? 'Online' : friendStatus?.lastSeen ? formatTime(friendStatus.lastSeen) : 'Offline'}
-                                                </span>
-                                            </div>
-                                        </div>
+                                <div className="glass-panel px-3 pt-10 pb-3 flex items-center sticky top-0 z-30 border-b border-[var(--border)]">
+                                    <button onClick={() => setActiveChat(null)} className="md:hidden flex items-center mr-2 btn-press text-[var(--primary)]">
+                                        <i className="ph-bold ph-caret-left text-3xl -ml-2"></i>
+                                    </button>
+                                    <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-blue-500 to-cyan-400 flex items-center justify-center font-bold mr-3">
+                                        {activeChat.displayName.charAt(0).toUpperCase()}
                                     </div>
-                                    <div className="p-2" style={{ color: 'var(--ios-blue)' }}><i className="ph-fill ph-video-camera text-2xl opacity-50"></i></div>
+                                    <div className="flex flex-col">
+                                        <span className="font-bold text-base">{activeChat.displayName}</span>
+                                        <span className="text-xs text-[var(--text-muted)]">E2EE Secured</span>
+                                    </div>
                                 </div>
 
-                                <div className="flex-1 overflow-y-auto px-4 py-4 flex flex-col gap-[2px] hide-scrollbar relative">
-                                    <div className="text-center my-6">
-                                        <span className="text-[11px] font-bold uppercase tracking-widest" style={{ color: 'var(--ios-text-secondary)' }}>E2EE Session Active</span>
-                                    </div>
-
+                                <div className="flex-1 overflow-y-auto px-4 py-4 flex flex-col gap-1 hide-scrollbar">
                                     {messages.map((msg, index, arr) => {
                                         const isMe = msg.sender === identity.code;
                                         const nextMsg = arr[index + 1];
-                                        const isLastInGroup = index === arr.length - 1 || (nextMsg && nextMsg.sender !== msg.sender);
-                                        const text = decryptedCache[msg.id] || "Mendekripsi...";
+                                        const isLast = !nextMsg || nextMsg.sender !== msg.sender;
+                                        const text = decryptedCache[msg.id] || "Decrypting...";
 
                                         return (
-                                            <div key={msg.id} className={`flex w-full ${isMe ? 'justify-end' : 'justify-start'} ${isLastInGroup ? 'mb-4' : ''}`}>
-                                                <div className={`relative max-w-[75%] px-[16px] py-[8px] text-[17px] leading-[1.3]
-                                                        ${isMe 
-                                                            ? `text-white bubble-enter ${isLastInGroup ? 'rounded-[18px] rounded-br-[4px] tail-right' : 'rounded-[18px]'}` 
-                                                            : `bubble-enter-left ${isLastInGroup ? 'rounded-[18px] rounded-bl-[4px] tail-left' : 'rounded-[18px]'}`
-                                                        }`}
-                                                     style={{ 
-                                                         backgroundColor: isMe ? 'var(--ios-blue)' : 'var(--bubble-received)',
-                                                         color: isMe ? '#fff' : 'var(--ios-text)'
-                                                     }}
-                                                >
-                                                    <p style={{ wordBreak: 'break-word' }}>{text}</p>
+                                            <div key={msg.id} className={`flex w-full ${isMe ? 'justify-end' : 'justify-start'} ${isLast ? 'mb-3' : ''}`}>
+                                                <div className={`max-w-[75%] px-4 py-2 text-[15px] leading-relaxed break-words
+                                                        ${isMe ? 'bg-[var(--primary)] text-white rounded-[20px] rounded-br-sm' 
+                                                               : 'bg-[var(--surface)] border border-[var(--border)] text-white rounded-[20px] rounded-bl-sm'}`}>
+                                                    {text}
                                                 </div>
                                             </div>
                                         );
@@ -601,28 +675,23 @@
                                     <div ref={messagesEndRef} className="h-4"></div>
                                 </div>
 
-                                <div className="ios-glass p-2 pb-8 md:pb-4 z-30 flex items-end gap-3">
-                                    <button type="button" className="p-2 mb-0.5 btn-press text-[var(--ios-text-secondary)]"><i className="ph-bold ph-plus text-[24px]"></i></button>
-                                    <form onSubmit={handleSend} className="flex-1 relative mb-0.5">
+                                <div className="glass-panel p-3 pb-8 md:pb-4 z-30">
+                                    <form onSubmit={handleSend} className="flex relative items-center gap-2">
                                         <input 
                                             type="text" value={inputText} onChange={(e) => setInputText(e.target.value)}
-                                            placeholder="iMessage" 
-                                            className="w-full rounded-full py-[6px] pl-[16px] pr-[36px] text-[17px] focus:outline-none transition-colors border border-[var(--ios-separator)]"
-                                            style={{ backgroundColor: 'var(--ios-surface)', lineHeight: '24px' }}
+                                            placeholder="Secure Message" 
+                                            className="flex-1 bg-[var(--surface)] border border-[var(--border)] rounded-full py-2.5 pl-5 pr-12 text-[15px] outline-none"
                                         />
-                                        {inputText.trim() ? (
-                                            <button type="submit" className="absolute right-[4px] bottom-[4px] w-[28px] h-[28px] rounded-full flex items-center justify-center btn-press" style={{ backgroundColor: 'var(--ios-blue)', color: 'white' }}>
-                                                <i className="ph-bold ph-arrow-up text-[14px]"></i>
-                                            </button>
-                                        ) : (
-                                            <button type="button" className="absolute right-[8px] bottom-[6px] text-[var(--ios-text-secondary)]"><i className="ph-bold ph-microphone text-[22px]"></i></button>
-                                        )}
+                                        <button type="submit" disabled={!inputText.trim()} 
+                                            className={`absolute right-1.5 w-8 h-8 rounded-full flex items-center justify-center bg-[var(--primary)] text-white transition-opacity ${!inputText.trim() ? 'opacity-0 pointer-events-none' : 'opacity-100 btn-press'}`}>
+                                            <i className="ph-bold ph-arrow-up text-sm"></i>
+                                        </button>
                                     </form>
                                 </div>
                             </React.Fragment>
                         ) : (
-                            <div className="hidden md:flex flex-1 items-center justify-center flex-col opacity-20">
-                                <i className="ph-fill ph-chat-circle text-7xl mb-4"></i>
+                            <div className="hidden md:flex flex-1 items-center justify-center flex-col opacity-10">
+                                <i className="ph-fill ph-lock-key text-8xl mb-4"></i>
                             </div>
                         )}
                     </div>
