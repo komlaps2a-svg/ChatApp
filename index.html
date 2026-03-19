@@ -289,7 +289,7 @@
                 setLoadingState("Generating Wrapped Keys...");
 
                 try {
-                    const code = Array.from(window.crypto.getRandomValues(new Uint8Array(4))).map(b => b.toString(16).padStart(2, '0')).toUpperCase().join('');
+                    const code = Array.from(window.crypto.getRandomValues(new Uint8Array(4))).map(b => b.toString(16).padStart(2, '0')).join('').toUpperCase();
                     
                     // Asymmetric ECDH Keys
                     const keypair = await CryptoUtils.generateKeypair();
