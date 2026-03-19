@@ -6,7 +6,7 @@
     <meta name="theme-color" content="#000000">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <title>Ghost Protocol</title>
+    <title>Ghost Protocol V3</title>
     
     <script src="https://cdn.tailwindcss.com"></script>
     <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
@@ -24,6 +24,7 @@
             --text-muted: rgba(235, 235, 245, 0.6);
             --border: rgba(84, 84, 88, 0.65);
             --danger: #FF453A;
+            --success: #34C759;
         }
 
         body {
@@ -39,7 +40,7 @@
         .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
 
         .glass-panel {
-            background-color: rgba(28, 28, 30, 0.7);
+            background-color: rgba(28, 28, 30, 0.85);
             backdrop-filter: blur(40px) saturate(200%);
             -webkit-backdrop-filter: blur(40px) saturate(200%);
         }
@@ -57,25 +58,40 @@
 
     <script type="text/babel">
         // ==========================================
-        // [UTILS] CRYPTO ENGINE (WebCrypto API)
-        // DILARANG MENGGUNAKAN LIBRARY EKSTERNAL UNTUK E2EE.
+        // [DICTIONARY] 100 Kata untuk Passphrase (Mnemonic)
+        // ==========================================
+        const DICT = [
+            "air", "api", "angin", "bumi", "batu", "bulan", "bintang", "cahaya", "cinta", "damai", 
+            "daun", "dunia", "emas", "embun", "fajar", "guntur", "gunung", "hutan", "hujan", "indah", 
+            "jalan", "jiwa", "kaca", "kayu", "langit", "laut", "mata", "mimpi", "naga", "nada", 
+            "ombak", "pasir", "pelangi", "pohon", "raja", "ratu", "sungai", "surya", "tanah", "timur", 
+            "utara", "waktu", "awan", "bara", "bayang", "biru", "bukit", "bunga", "burung", "cakar", 
+            "cerah", "cincin", "darah", "darat", "dewa", "dingin", "elang", "gading", "gelap", "gema", 
+            "gerbang", "gurun", "hampa", "harimau", "hitam", "hiu", "istana", "kabut", "karang", "kilat", 
+            "kristal", "kuda", "kuning", "lembah", "macan", "malam", "merah", "merpati", "mitos", "panah", 
+            "panas", "pedang", "perak", "petir", "pijar", "pulau", "purnama", "putih", "rahasia", "rimba", 
+            "ruang", "samudra", "sayap", "senja", "singa", "suara", "tajam", "tombak", "udara", "ular"
+        ];
+
+        // ==========================================
+        // [UTILS] CRYPTO ENGINE & KEY WRAPPING
         // ==========================================
         const CryptoUtils = {
             async generateKeypair() { 
                 return await window.crypto.subtle.generateKey({ name: "ECDH", namedCurve: "P-256" }, true, ["deriveKey", "deriveBits"]); 
             },
-            async exportKeyJWK(key) { 
-                return await window.crypto.subtle.exportKey("jwk", key); 
-            },
-            async importPublicKey(jwk) { 
-                return await window.crypto.subtle.importKey("jwk", jwk, { name: "ECDH", namedCurve: "P-256" }, true, []); 
-            },
-            async importPrivateKey(jwk) { 
-                return await window.crypto.subtle.importKey("jwk", jwk, { name: "ECDH", namedCurve: "P-256" }, true, ["deriveKey", "deriveBits"]); 
-            },
-            async deriveSharedSecret(privateKey, publicKeyJWK) {
-                const publicKey = await this.importPublicKey(publicKeyJWK);
-                return await window.crypto.subtle.deriveKey({ name: "ECDH", public: publicKey }, privateKey, { name: "AES-GCM", length: 256 }, false, ["encrypt", "decrypt"]);
+            async exportKeyJWK(key) { return await window.crypto.subtle.exportKey("jwk", key); },
+            async importPublicKey(jwk) { return await window.crypto.subtle.importKey("jwk", jwk, { name: "ECDH", namedCurve: "P-256" }, true, []); },
+            async importPrivateKey(jwk) { return await window.crypto.subtle.importKey("jwk", jwk, { name: "ECDH", namedCurve: "P-256" }, true, ["deriveKey", "deriveBits"]); },
+            
+            // PBKDF2 derivation for Key Wrapping
+            async deriveWrapKey(passphrase, salt) {
+                const enc = new TextEncoder();
+                const keyMaterial = await crypto.subtle.importKey("raw", enc.encode(passphrase), { name: "PBKDF2" }, false, ["deriveKey"]);
+                return await crypto.subtle.deriveKey(
+                    { name: "PBKDF2", salt: enc.encode(salt), iterations: 20000, hash: "SHA-256" },
+                    keyMaterial, { name: "AES-GCM", length: 256 }, false, ["encrypt", "decrypt"]
+                );
             },
             async encryptText(text, sharedKey) {
                 const iv = window.crypto.getRandomValues(new Uint8Array(12));
@@ -89,23 +105,15 @@
                     const data = new Uint8Array(encryptedPayload.data);
                     const decrypted = await window.crypto.subtle.decrypt({ name: "AES-GCM", iv: iv }, sharedKey, data);
                     return new TextDecoder().decode(decrypted);
-                } catch (e) { return "🔒 [Decryption Failed: Key Mismatch]"; }
+                } catch (e) { return "🔒 [Decryption Failed]"; }
             }
         };
 
-        // ==========================================
-        // [UTILS] STORAGE LAYER
-        // ==========================================
         const LocalDB = {
             async init() {
                 return new Promise((resolve, reject) => {
-                    const req = indexedDB.open("GhostProtocolDB", 2);
-                    req.onupgradeneeded = e => {
-                        if(e.oldVersion < 2) {
-                            try { e.target.result.deleteObjectStore("identity"); } catch(err){}
-                            e.target.result.createObjectStore("identity", { keyPath: "id" });
-                        }
-                    };
+                    const req = indexedDB.open("GhostProtocolDB_V3", 1);
+                    req.onupgradeneeded = e => { e.target.result.createObjectStore("identity", { keyPath: "id" }); };
                     req.onsuccess = e => resolve(e.target.result);
                     req.onerror = e => reject(e);
                 });
@@ -131,6 +139,7 @@
             async wipeData() {
                 const db = await this.init();
                 return new Promise((resolve) => {
+                    if (!db.objectStoreNames.contains("identity")) return resolve();
                     const tx = db.transaction("identity", "readwrite");
                     tx.objectStore("identity").clear();
                     tx.oncomplete = () => resolve();
@@ -142,7 +151,7 @@
         // [CONFIG] HYBRID FIREBASE
         // ==========================================
         const isCanvasEnv = typeof __firebase_config !== 'undefined' && __firebase_config;
-        const APP_ID = typeof __app_id !== 'undefined' ? __app_id : 'ghost-chat-e2ee';
+        const APP_ID = typeof __app_id !== 'undefined' ? __app_id : 'ghost-chat-e2ee-v3';
         
         const getFirebaseConfig = () => {
             if (isCanvasEnv) return JSON.parse(__firebase_config);
@@ -160,45 +169,38 @@
         // [MAIN] REACT APPLICATION
         // ==========================================
         const App = () => {
-            // System State
             const [fbReady, setFbReady] = React.useState(false);
             const [fbModules, setFbModules] = React.useState(null);
             const [user, setUser] = React.useState(null);
             
-            // UI State
             const [sysError, setSysError] = React.useState(null);
             const [loadingState, setLoadingState] = React.useState("");
-            const [authView, setAuthView] = React.useState("choice"); // choice | register | login | key_reveal | main
+            const [authView, setAuthView] = React.useState("choice"); 
             
-            // App State
-            const [identity, setIdentity] = React.useState(null); // { code, privateKey (CryptoKey), pubJWK, name }
+            const [identity, setIdentity] = React.useState(null);
             const [friends, setFriends] = React.useState([]);
             const [activeChat, setActiveChat] = React.useState(null);
             const [messages, setMessages] = React.useState([]);
             const [decryptedCache, setDecryptedCache] = React.useState({});
 
-            // Inputs
             const [setupName, setSetupName] = React.useState("");
             const [recoveryKeyInput, setRecoveryKeyInput] = React.useState("");
             const [generatedRecoveryKey, setGeneratedRecoveryKey] = React.useState("");
             const [inputText, setInputText] = React.useState('');
             
-            // Modals
-            const [activeModal, setActiveModal] = React.useState(null); // profile | add | null
+            const [activeModal, setActiveModal] = React.useState(null);
             const [addCodeInput, setAddCodeInput] = React.useState("");
             const [addStatus, setAddStatus] = React.useState("");
 
             const messagesEndRef = React.useRef(null);
             const qrRef = React.useRef(null);
 
-            // ------------------------------------------
-            // 1. BOOT & AUTHENTICATION
-            // ------------------------------------------
+            // [1. BOOT SEQUENCE]
             React.useEffect(() => {
                 let unsubscribeAuth = null;
                 const initSystem = async () => {
                     try {
-                        setLoadingState("Connecting to Backend...");
+                        setLoadingState("Connecting to Core Backend...");
                         const importModule = new Function('url', 'return import(url)');
                         const fbApp = await importModule('https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js');
                         const fbAuth = await importModule('https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js');
@@ -220,10 +222,9 @@
                         unsubscribeAuth = fbAuth.onAuthStateChanged(auth, async (u) => {
                             if (u) {
                                 setUser(u);
-                                setLoadingState("Checking Local Identity...");
+                                setLoadingState("Verifying Identity Engine...");
                                 const localData = await LocalDB.getIdentity();
                                 if (localData) {
-                                    // Re-hydrate CryptoKey from JWK
                                     try {
                                         const privKey = await CryptoUtils.importPrivateKey(localData.privateKeyJWK);
                                         setIdentity({
@@ -234,28 +235,23 @@
                                         });
                                         setAuthView("main");
                                     } catch (e) {
-                                        setSysError("Kunci lokal korup. Harap re-login menggunakan Recovery Key.");
+                                        setSysError("Kunci lokal korup. Hard Reset diperlukan.");
                                         await LocalDB.wipeData();
                                     }
                                 }
                                 setFbReady(true);
                                 setLoadingState("");
-                            } else {
-                                setUser(null);
-                            }
+                            } else { setUser(null); }
                         });
-                    } catch (err) { 
-                        setSysError(`BOOT_FAILED: ${err.message}`);
-                    }
+                    } catch (err) { setSysError(`BOOT_FAILED: ${err.message}`); }
                 };
                 initSystem();
                 return () => { if (unsubscribeAuth) unsubscribeAuth(); };
             }, []);
 
-            // Auto-scroll
             React.useEffect(() => { messagesEndRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages, decryptedCache]);
 
-            // Realtime Chat Worker
+            // [2. REALTIME CHAT ENGINE]
             React.useEffect(() => {
                 if (!fbReady || !identity || !activeChat || authView !== "main") return;
                 const { db, fbDb } = fbModules;
@@ -286,41 +282,47 @@
                 return () => unsubChat();
             }, [fbReady, identity, activeChat, authView]);
 
-            // ------------------------------------------
-            // 2. CORE LOGIC: REGISTRATION (New Account)
-            // ------------------------------------------
+            // [3. REGISTRATION (Mnemonic Wrapped)]
             const handleRegister = async (e) => {
                 e.preventDefault();
                 if (!setupName.trim() || !fbModules || !user) return;
-                setLoadingState("Generating Keys...");
+                setLoadingState("Generating Wrapped Keys...");
 
                 try {
-                    // 1. Generate Public ID & Keys
-                    const code = Array.from(window.crypto.getRandomValues(new Uint8Array(4))).map(b => b.toString(16).padStart(2, '0')).join('').toUpperCase();
-                    const keypair = await CryptoUtils.generateKeypair();
+                    const code = Array.from(window.crypto.getRandomValues(new Uint8Array(4))).map(b => b.toString(16).padStart(2, '0')).toUpperCase().join('');
                     
+                    // Asymmetric ECDH Keys
+                    const keypair = await CryptoUtils.generateKeypair();
                     const pubJWK = await CryptoUtils.exportKeyJWK(keypair.publicKey);
                     const privJWK = await CryptoUtils.exportKeyJWK(keypair.privateKey);
                     
-                    // 2. Build Recovery Key (Export Format)
-                    const recoveryObj = { c: code, p: privJWK, pu: pubJWK, n: setupName.trim() };
-                    const rKey = "GHOST-" + btoa(JSON.stringify(recoveryObj));
-                    setGeneratedRecoveryKey(rKey);
-
-                    // 3. Save to LocalDB
-                    await LocalDB.saveIdentity(code, privJWK, pubJWK, setupName.trim());
+                    // Generate 9 words & Wrap Key
+                    const randomWords = Array.from({length: 9}, () => DICT[Math.floor(Math.random() * DICT.length)]);
+                    const passphrase = randomWords.join("-");
+                    const wrapKey = await CryptoUtils.deriveWrapKey(passphrase, code); // salt = code
                     
-                    // 4. Save to Firestore (Public Directory)
+                    // Encrypt Private Key payload
+                    const encryptedPrivKeyData = await CryptoUtils.encryptText(JSON.stringify(privJWK), wrapKey);
+
+                    // Final Recovery String
+                    const finalKey = `${code}.${passphrase}`;
+                    setGeneratedRecoveryKey(finalKey);
+
+                    // Save Cloud DB
                     const { db, fbDb } = fbModules;
                     const userDocRef = isCanvasEnv 
                         ? fbDb.doc(db, 'artifacts', APP_ID, 'public', 'data', 'users', code)
                         : fbDb.doc(db, 'users', code);
                     
                     await fbDb.setDoc(userDocRef, {
-                        code, displayName: setupName.trim(), publicKeyJWK: pubJWK, createdAt: Date.now()
+                        code, displayName: setupName.trim(), publicKeyJWK: pubJWK,
+                        encryptedPrivKey: encryptedPrivKeyData,
+                        createdAt: Date.now()
                     });
 
-                    // 5. Update State
+                    // Save Local DB
+                    await LocalDB.saveIdentity(code, privJWK, pubJWK, setupName.trim());
+                    
                     setIdentity({ code, privateKey: keypair.privateKey, publicKeyJWK: pubJWK, displayName: setupName.trim() });
                     setAuthView("key_reveal");
                 } catch (err) {
@@ -330,59 +332,62 @@
                 }
             };
 
-            // ------------------------------------------
-            // 3. CORE LOGIC: LOGIN (Restore Account)
-            // ------------------------------------------
+            // [4. LOGIN (Unwrap Logic)]
             const handleRestore = async (e) => {
                 e.preventDefault();
                 if (!recoveryKeyInput.trim() || !fbModules || !user) return;
-                setLoadingState("Decrypting Local Key...");
+                setLoadingState("Fetching Cloud Identity...");
 
                 try {
-                    // 1. Parse Key
-                    const base64str = recoveryKeyInput.replace("GHOST-", "");
-                    const parsed = JSON.parse(atob(base64str));
+                    const parts = recoveryKeyInput.trim().split('.');
+                    if (parts.length !== 2) throw new Error("Format salah. Gunakan: ID.kata-kata");
                     
-                    if (!parsed.c || !parsed.p || !parsed.pu) throw new Error("Format Key tidak valid.");
+                    const [inputCode, inputPassphrase] = parts;
+                    const code = inputCode.toUpperCase();
 
-                    // 2. Re-hydrate Private Key
-                    const privKey = await CryptoUtils.importPrivateKey(parsed.p);
+                    const { db, fbDb } = fbModules;
+                    const userDocRef = isCanvasEnv 
+                        ? fbDb.doc(db, 'artifacts', APP_ID, 'public', 'data', 'users', code)
+                        : fbDb.doc(db, 'users', code);
+                    
+                    const snap = await fbDb.getDoc(userDocRef);
+                    if (!snap.exists()) throw new Error("Public ID tidak ditemukan di server.");
+                    const data = snap.data();
 
-                    // 3. Save to Local DB
-                    await LocalDB.saveIdentity(parsed.c, parsed.p, parsed.pu, parsed.n);
+                    setLoadingState("Decrypting Private Key...");
+                    const wrapKey = await CryptoUtils.deriveWrapKey(inputPassphrase, code);
+                    const decryptedPrivString = await CryptoUtils.decryptText(data.encryptedPrivKey, wrapKey);
+                    
+                    if (decryptedPrivString.startsWith("🔒")) throw new Error("Passphrase kata salah.");
 
-                    // 4. Enter Main App
-                    setIdentity({ code: parsed.c, privateKey: privKey, publicKeyJWK: parsed.pu, displayName: parsed.n });
+                    const privJWK = JSON.parse(decryptedPrivString);
+                    const privKey = await CryptoUtils.importPrivateKey(privJWK);
+
+                    await LocalDB.saveIdentity(code, privJWK, data.publicKeyJWK, data.displayName);
+
+                    setIdentity({ code: code, privateKey: privKey, publicKeyJWK: data.publicKeyJWK, displayName: data.displayName });
                     setAuthView("main");
                 } catch (err) {
-                    alert("Kunci Recovery tidak valid atau rusak.");
+                    alert(`Error: ${err.message}`);
                 } finally {
                     setLoadingState("");
                 }
             };
 
-            // ------------------------------------------
-            // 4. CORE LOGIC: LOGOUT
-            // ------------------------------------------
             const handleLogout = async () => {
-                if(!confirm("PERINGATAN: Logout akan menghapus kredensial kriptografi dari perangkat ini. Pastikan Anda telah menyimpan Private Recovery Key. Lanjutkan?")) return;
+                if(!confirm("PERINGATAN: Kunci private lokal akan dimusnahkan. Anda WAJIB memiliki Recovery Key untuk masuk kembali. Lanjutkan?")) return;
                 await LocalDB.wipeData();
-                setIdentity(null);
-                setActiveChat(null);
-                setAuthView("choice");
-                setActiveModal(null);
+                setIdentity(null); setActiveChat(null); setAuthView("choice"); setActiveModal(null); setRecoveryKeyInput("");
             };
 
-            // ------------------------------------------
-            // 5. CORE LOGIC: MESSAGING & FRIENDS
-            // ------------------------------------------
+            // [5. ADD FRIEND & MSG]
             const processAddFriend = async (e) => {
                 e.preventDefault();
-                setAddStatus("Verifying ID...");
+                setAddStatus("Mencari Target...");
                 const code = addCodeInput.trim().toUpperCase();
                 
-                if (code === identity.code) return setAddStatus("ERR: Cannot add self.");
-                if (friends.find(f => f.code === code)) return setAddStatus("ERR: Contact exists.");
+                if (code === identity.code) return setAddStatus("ERR: Gagal (ID Sendiri).");
+                if (friends.find(f => f.code === code)) return setAddStatus("ERR: Kontak sudah ada.");
 
                 const { db, fbDb } = fbModules;
                 const userDocRef = isCanvasEnv 
@@ -393,12 +398,10 @@
                     const snap = await fbDb.getDoc(userDocRef);
                     if (snap.exists()) {
                         setFriends(prev => [...prev, snap.data()]);
-                        setAddStatus("SUCCESS");
+                        setAddStatus("HANDSHAKE SUCCESS");
                         setTimeout(() => { setActiveModal(null); setAddCodeInput(""); setAddStatus(""); }, 500);
-                    } else {
-                        setAddStatus("ERR: ID not found.");
-                    }
-                } catch (err) { setAddStatus("ERR: Network blocked."); }
+                    } else { setAddStatus("ERR: Public ID Invalid."); }
+                } catch (err) { setAddStatus("ERR: Jaringan Ditolak."); }
             };
 
             const handleSend = async (e) => {
@@ -417,24 +420,19 @@
                         ? fbDb.collection(db, 'artifacts', APP_ID, 'public', 'data', `chats_${chatId}`)
                         : fbDb.collection(db, `chats_${chatId}`);
                     
-                    await fbDb.addDoc(chatPath, {
-                        sender: identity.code, timestamp: Date.now(), payload: encryptedPayload, status: 'sent'
-                    });
+                    await fbDb.addDoc(chatPath, { sender: identity.code, timestamp: Date.now(), payload: encryptedPayload, status: 'sent' });
                 } catch (error) { console.error(error); alert("Gagal enkripsi pesan."); }
             };
 
-
             // ==========================================
-            // [VIEW] ERROR FALLBACK
+            // [VIEW RENDERERS]
             // ==========================================
             if (sysError) return (
                 <div className="h-screen flex items-center justify-center p-6 bg-black text-white">
                     <div className="text-center w-full max-w-sm">
                         <i className="ph-fill ph-warning-circle text-5xl mb-4 text-[var(--danger)]"></i>
-                        <h1 className="text-xl font-bold mb-2">CRITICAL EXCEPTION</h1>
-                        <div className="bg-red-900/30 border border-red-500/30 p-4 rounded-xl text-left text-xs font-mono text-red-400 mt-4 break-words">
-                            {sysError}
-                        </div>
+                        <h1 className="text-xl font-bold mb-2">SYSTEM FAULT</h1>
+                        <div className="bg-red-900/30 border border-red-500/30 p-4 rounded-xl text-left text-xs font-mono text-red-400 mt-4">{sysError}</div>
                         <button onClick={() => window.location.reload()} className="mt-6 w-full py-3 bg-[var(--surface)] rounded-xl font-bold">Hard Reboot</button>
                     </div>
                 </div>
@@ -447,24 +445,21 @@
                 </div>
             );
 
-            // ==========================================
-            // [VIEW] AUTH ROUTER (Choice -> Register/Login -> Reveal)
-            // ==========================================
             if (authView === "choice") return (
                 <div className="h-screen flex items-center justify-center p-6 bg-[var(--bg-dark)]">
                     <div className="w-full max-w-sm text-center">
-                        <div className="w-20 h-20 mx-auto bg-blue-500/10 rounded-2xl flex items-center justify-center mb-6">
+                        <div className="w-20 h-20 mx-auto bg-blue-500/10 rounded-2xl flex items-center justify-center mb-6 border border-blue-500/20 shadow-[0_0_30px_rgba(10,132,255,0.1)]">
                             <i className="ph-fill ph-shield-check text-4xl text-[var(--primary)]"></i>
                         </div>
                         <h1 className="text-3xl font-bold mb-2 tracking-tight text-white">Ghost Protocol</h1>
-                        <p className="text-sm mb-10 text-[var(--text-muted)]">Otentikasi Kriptografis Tanpa Nomor Telepon.</p>
+                        <p className="text-sm mb-10 text-[var(--text-muted)]">Otentikasi E2EE. Tanpa Email. Tanpa Nomor Telepon.</p>
                         
                         <div className="space-y-4">
-                            <button onClick={() => setAuthView("register")} className="w-full py-3.5 rounded-xl font-bold bg-[var(--primary)] text-white btn-press">
-                                Buat Identitas Baru
+                            <button onClick={() => setAuthView("register")} className="w-full py-4 rounded-xl font-bold bg-[var(--primary)] text-white btn-press">
+                                Generate Identity Baru
                             </button>
-                            <button onClick={() => setAuthView("login")} className="w-full py-3.5 rounded-xl font-bold bg-[var(--surface)] text-white btn-press">
-                                Login via Recovery Key
+                            <button onClick={() => setAuthView("login")} className="w-full py-4 rounded-xl font-bold bg-[var(--surface)] text-white btn-press border border-[var(--border)]">
+                                Login via Mnemonic Key
                             </button>
                         </div>
                     </div>
@@ -473,20 +468,20 @@
 
             if (authView === "register") return (
                 <div className="h-screen flex items-center justify-center p-6 bg-[var(--bg-dark)] relative">
-                    <button onClick={() => setAuthView("choice")} className="absolute top-6 left-6 text-[var(--primary)] flex items-center">
-                        <i className="ph-bold ph-caret-left text-2xl"></i> Batal
+                    <button onClick={() => setAuthView("choice")} className="absolute top-6 left-6 text-[var(--primary)] flex items-center font-bold">
+                        <i className="ph-bold ph-caret-left text-2xl"></i> Back
                     </button>
                     <div className="w-full max-w-sm">
-                        <h2 className="text-2xl font-bold mb-2">Identitas Publik</h2>
-                        <p className="text-sm mb-6 text-[var(--text-muted)]">Nama ini akan terlihat oleh kontak Anda.</p>
+                        <h2 className="text-2xl font-bold mb-2">Display Name</h2>
+                        <p className="text-sm mb-8 text-[var(--text-muted)]">Alias yang akan dilihat oleh lawan bicara Anda.</p>
                         <form onSubmit={handleRegister}>
                             <input 
-                                type="text" required placeholder="Nama Samaran" maxLength="20"
-                                className="w-full bg-[var(--surface)] text-white px-4 py-4 rounded-xl outline-none mb-4 font-bold text-center"
+                                type="text" required placeholder="Nama Samaran" maxLength="20" autoFocus
+                                className="w-full bg-[var(--surface)] border border-[var(--border)] text-white px-4 py-4 rounded-xl outline-none mb-4 font-bold text-center text-lg"
                                 value={setupName} onChange={e => setSetupName(e.target.value)}
                             />
-                            <button type="submit" disabled={!setupName.trim()} className={`w-full py-3.5 rounded-xl font-bold bg-[var(--primary)] text-white btn-press ${!setupName.trim() ? 'btn-disabled' : ''}`}>
-                                Generate RSA Keys
+                            <button type="submit" disabled={!setupName.trim()} className={`w-full py-4 rounded-xl font-bold bg-[var(--primary)] text-white btn-press ${!setupName.trim() ? 'btn-disabled' : ''}`}>
+                                Build Secure Key
                             </button>
                         </form>
                     </div>
@@ -495,20 +490,20 @@
 
             if (authView === "login") return (
                 <div className="h-screen flex items-center justify-center p-6 bg-[var(--bg-dark)] relative">
-                    <button onClick={() => setAuthView("choice")} className="absolute top-6 left-6 text-[var(--primary)] flex items-center">
-                        <i className="ph-bold ph-caret-left text-2xl"></i> Batal
+                    <button onClick={() => setAuthView("choice")} className="absolute top-6 left-6 text-[var(--primary)] flex items-center font-bold">
+                        <i className="ph-bold ph-caret-left text-2xl"></i> Back
                     </button>
                     <div className="w-full max-w-sm">
-                        <h2 className="text-2xl font-bold mb-2">Restore Session</h2>
-                        <p className="text-sm mb-6 text-[var(--text-muted)]">Masukkan Private Recovery Key Anda yang diawali dengan "GHOST-".</p>
+                        <h2 className="text-2xl font-bold mb-2">Restore Identity</h2>
+                        <p className="text-sm mb-6 text-[var(--text-muted)]">Masukkan Recovery Key (ID dan 9 kata rahasia yang dipisahkan oleh titik).</p>
                         <form onSubmit={handleRestore}>
                             <textarea 
-                                required placeholder="GHOST-xxxxxx..." rows="4"
-                                className="w-full bg-[var(--surface)] text-[12px] font-mono text-green-400 px-4 py-3 rounded-xl outline-none mb-4 resize-none break-all"
-                                value={recoveryKeyInput} onChange={e => setRecoveryKeyInput(e.target.value)}
+                                required placeholder="Contoh: A1B2C3D4.api-daun-sungai-..." rows="4" autoFocus
+                                className="w-full bg-[var(--surface)] border border-[var(--border)] text-[16px] font-mono text-[var(--success)] px-4 py-3 rounded-xl outline-none mb-4 resize-none"
+                                value={recoveryKeyInput} onChange={e => setRecoveryKeyInput(e.target.value.toLowerCase())}
                             />
-                            <button type="submit" disabled={!recoveryKeyInput.trim()} className={`w-full py-3.5 rounded-xl font-bold bg-[var(--primary)] text-white btn-press ${!recoveryKeyInput.trim() ? 'btn-disabled' : ''}`}>
-                                Dekripsi & Masuk
+                            <button type="submit" disabled={!recoveryKeyInput.trim()} className={`w-full py-4 rounded-xl font-bold bg-[var(--primary)] text-white btn-press ${!recoveryKeyInput.trim() ? 'btn-disabled' : ''}`}>
+                                Decrypt & Login
                             </button>
                         </form>
                     </div>
@@ -518,12 +513,12 @@
             if (authView === "key_reveal") return (
                 <div className="h-screen flex items-center justify-center p-6 bg-[var(--bg-dark)]">
                     <div className="w-full max-w-sm text-center">
-                        <i className="ph-fill ph-warning text-4xl text-yellow-500 mb-4"></i>
-                        <h2 className="text-xl font-bold mb-2">Simpan Recovery Key</h2>
-                        <p className="text-xs mb-4 text-[var(--text-muted)]">Jika Anda logout atau pindah perangkat, ini adalah <b>SATU-SATUNYA CARA</b> untuk memulihkan akun dan membaca pesan Anda. Kami tidak menyimpannya di server.</p>
+                        <i className="ph-fill ph-warning text-5xl text-yellow-500 mb-4"></i>
+                        <h2 className="text-xl font-bold mb-2">Mnemonic Recovery Key</h2>
+                        <p className="text-sm mb-6 text-[var(--text-muted)]">Salin dan simpan teks hijau di bawah. Ini <b>SATU-SATUNYA</b> kunci untuk masuk ke akun Anda jika aplikasi dihapus.</p>
                         
-                        <div className="bg-[var(--surface)] p-4 rounded-xl mb-6 text-left relative">
-                            <div className="text-[10px] font-mono text-green-400 break-all selectable-text max-h-[150px] overflow-y-auto">
+                        <div className="bg-[var(--surface)] p-5 rounded-2xl mb-8 border border-[var(--border)] text-left">
+                            <div className="text-[17px] font-mono text-[var(--success)] leading-relaxed selectable-text">
                                 {generatedRecoveryKey}
                             </div>
                         </div>
@@ -531,61 +526,57 @@
                         <button onClick={() => {
                             navigator.clipboard.writeText(generatedRecoveryKey).catch(() => {});
                             setAuthView("main");
-                        }} className="w-full py-3.5 rounded-xl font-bold bg-[var(--primary)] text-white btn-press">
-                            Saya Sudah Menyalinnya
+                        }} className="w-full py-4 rounded-xl font-bold bg-[var(--primary)] text-white btn-press">
+                            Saya Sudah Menyimpannya
                         </button>
                     </div>
                 </div>
             );
 
-
-            // ==========================================
-            // [VIEW] MAIN APPLICATION
-            // ==========================================
             return (
                 <div className="flex h-screen w-full overflow-hidden relative">
-                    
-                    {/* MODAL SYSTEM */}
+                    {/* MODAL */}
                     {activeModal && (
-                        <div className="absolute inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
-                            <div className="bg-[var(--surface)] w-full max-w-sm rounded-[28px] p-6 flex flex-col items-center text-center relative border border-[var(--border)]">
-                                <button onClick={() => setActiveModal(null)} className="absolute top-4 right-4 w-8 h-8 flex items-center justify-center bg-white/10 rounded-full btn-press">
+                        <div className="absolute inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
+                            <div className="bg-[var(--surface)] w-full max-w-sm rounded-[32px] p-6 flex flex-col items-center text-center relative border border-[var(--border)] shadow-2xl">
+                                <button onClick={() => setActiveModal(null)} className="absolute top-5 right-5 w-8 h-8 flex items-center justify-center bg-white/10 rounded-full btn-press">
                                     <i className="ph-bold ph-x text-sm"></i>
                                 </button>
                                 
                                 {activeModal === 'profile' ? (
                                     <>
-                                        <div className="w-16 h-16 rounded-full bg-gradient-to-tr from-blue-500 to-cyan-400 flex items-center justify-center text-white font-bold text-2xl mb-4">
+                                        <div className="w-20 h-20 rounded-full bg-gradient-to-tr from-blue-500 to-cyan-400 flex items-center justify-center text-white font-bold text-3xl mb-4">
                                             {identity.displayName.charAt(0).toUpperCase()}
                                         </div>
-                                        <h3 className="font-bold text-xl mb-1">{identity.displayName}</h3>
-                                        <div className="bg-black/50 px-4 py-2 rounded-lg mb-6 border border-white/10">
-                                            <p className="text-xs text-[var(--text-muted)] mb-1">Public ID (Share this to chat)</p>
-                                            <p className="text-lg font-mono tracking-widest text-[var(--primary)] font-bold">{identity.code}</p>
+                                        <h3 className="font-bold text-2xl mb-1">{identity.displayName}</h3>
+                                        <p className="text-sm text-[var(--text-muted)] mb-6">Bagikan Public ID di bawah ini ke teman Anda.</p>
+                                        
+                                        <div className="bg-black/60 px-6 py-4 rounded-2xl mb-8 border border-white/5 w-full">
+                                            <p className="text-2xl font-mono tracking-[0.3em] text-[var(--primary)] font-bold">{identity.code}</p>
                                         </div>
                                         
-                                        <div className="w-full space-y-2 mt-4">
-                                            <button onClick={() => alert("Fitur backup sedang dibangun. Catat string GHOST- yang diberikan saat registrasi.")} className="w-full py-3 rounded-xl bg-white/5 font-semibold text-sm btn-press">
-                                                Backup Recovery Key
-                                            </button>
-                                            <button onClick={handleLogout} className="w-full py-3 rounded-xl bg-red-500/10 text-[var(--danger)] font-bold text-sm btn-press border border-red-500/20">
-                                                Log Out / Hapus Data
+                                        <div className="w-full space-y-3 mt-2">
+                                            <button onClick={handleLogout} className="w-full py-4 rounded-xl bg-red-500/10 text-[var(--danger)] font-bold text-[15px] btn-press border border-red-500/20">
+                                                Hapus Data & Log Out
                                             </button>
                                         </div>
                                     </>
                                 ) : (
                                     <div className="w-full">
-                                        <h3 className="font-bold text-xl mb-2 mt-2">New Connection</h3>
-                                        <p className="text-sm mb-6 text-[var(--text-muted)]">Input 8-digit Public ID</p>
+                                        <div className="w-14 h-14 mx-auto bg-blue-500/10 rounded-full flex items-center justify-center mb-4">
+                                            <i className="ph-fill ph-user-plus text-2xl text-[var(--primary)]"></i>
+                                        </div>
+                                        <h3 className="font-bold text-xl mb-2">Tambah Kontak</h3>
+                                        <p className="text-sm mb-6 text-[var(--text-muted)]">Masukkan 8-Digit Public ID Target</p>
                                         <form onSubmit={processAddFriend}>
                                             <input 
-                                                type="text" required maxLength="8"
+                                                type="text" required maxLength="8" autoFocus
                                                 value={addCodeInput} onChange={e => setAddCodeInput(e.target.value)}
-                                                className="w-full bg-black/50 border border-white/10 text-center font-mono text-xl tracking-widest px-4 py-3 rounded-xl outline-none mb-4 uppercase text-white"
+                                                className="w-full bg-black/60 border border-white/10 text-center font-mono text-2xl tracking-[0.2em] px-4 py-4 rounded-2xl outline-none mb-4 uppercase text-white font-bold"
                                             />
-                                            {addStatus && <p className={`text-xs text-center mb-4 ${addStatus.includes("SUCCESS") ? "text-green-500" : "text-[var(--danger)]"}`}>{addStatus}</p>}
-                                            <button type="submit" className="w-full font-bold py-3.5 rounded-xl btn-press text-[var(--bg-dark)] bg-white">
-                                                Initiate Handshake
+                                            {addStatus && <p className={`text-sm text-center mb-6 font-bold ${addStatus.includes("SUCCESS") ? "text-[var(--success)]" : "text-[var(--danger)]"}`}>{addStatus}</p>}
+                                            <button type="submit" disabled={addCodeInput.length < 8} className={`w-full font-bold py-4 rounded-xl btn-press text-[var(--bg-dark)] bg-white ${addCodeInput.length < 8 ? 'btn-disabled' : ''}`}>
+                                                Koneksikan E2EE
                                             </button>
                                         </form>
                                     </div>
@@ -598,37 +589,36 @@
                     <div className={`w-full md:w-[320px] lg:w-[380px] flex-shrink-0 flex flex-col border-r border-[var(--border)] transition-transform z-10 
                         ${activeChat ? '-translate-x-full md:translate-x-0 absolute md:relative h-full' : 'translate-x-0 relative h-full'}`}>
                         
-                        <div className="glass-panel px-4 pt-10 pb-3 sticky top-0 z-20">
-                            <div className="flex justify-between items-center mb-4">
-                                <h1 className="text-3xl font-bold tracking-tight">Chats</h1>
+                        <div className="glass-panel px-4 pt-12 pb-4 sticky top-0 z-20 border-b border-[var(--border)]">
+                            <div className="flex justify-between items-center mb-2">
+                                <h1 className="text-3xl font-bold tracking-tight">Obrolan</h1>
                                 <div className="flex gap-2">
-                                    <button onClick={() => setActiveModal('profile')} className="w-9 h-9 rounded-full flex items-center justify-center bg-[var(--surface)] btn-press border border-white/10">
+                                    <button onClick={() => setActiveModal('profile')} className="w-9 h-9 rounded-full flex items-center justify-center bg-[var(--surface)] btn-press">
                                         <i className="ph-fill ph-gear text-[18px] text-[var(--primary)]"></i>
                                     </button>
-                                    <button onClick={() => setActiveModal('add')} className="w-9 h-9 rounded-full flex items-center justify-center bg-[var(--surface)] btn-press border border-white/10">
+                                    <button onClick={() => setActiveModal('add')} className="w-9 h-9 rounded-full flex items-center justify-center bg-[var(--surface)] btn-press">
                                         <i className="ph-bold ph-plus text-[18px] text-[var(--primary)]"></i>
                                     </button>
                                 </div>
                             </div>
                         </div>
 
-                        <div className="flex-1 overflow-y-auto hide-scrollbar p-2">
+                        <div className="flex-1 overflow-y-auto hide-scrollbar bg-[var(--bg-dark)]">
                             {friends.length === 0 ? (
-                                <div className="text-center mt-10 text-[var(--text-muted)]">
-                                    <p className="text-sm">No encrypted sessions.</p>
+                                <div className="text-center mt-12 text-[var(--text-muted)] flex flex-col items-center">
+                                    <i className="ph-fill ph-ghost text-5xl mb-3 opacity-20"></i>
+                                    <p className="text-sm">Tidak ada kontak terenkripsi.</p>
                                 </div>
                             ) : (
                                 friends.map((friend) => (
                                     <div key={friend.code} onClick={() => setActiveChat(friend)} 
-                                        className={`cursor-pointer p-3 rounded-xl mb-1 flex items-center gap-3 transition-colors ${activeChat?.code === friend.code ? 'bg-[var(--primary)] text-white' : 'hover:bg-white/5'}`}>
-                                        <div className="w-12 h-12 rounded-full bg-white/10 flex items-center justify-center font-bold text-lg flex-shrink-0">
+                                        className={`cursor-pointer px-4 py-3 flex items-center gap-4 transition-colors ${activeChat?.code === friend.code ? 'bg-[var(--surface)]' : 'active:bg-[var(--surface)] hover:bg-white/5'}`}>
+                                        <div className="w-12 h-12 rounded-full bg-gradient-to-tr from-blue-500 to-cyan-400 flex items-center justify-center font-bold text-lg flex-shrink-0 text-white shadow-sm">
                                             {friend.displayName.charAt(0).toUpperCase()}
                                         </div>
-                                        <div className="flex-1 min-w-0">
-                                            <h3 className="font-semibold text-base truncate">{friend.displayName}</h3>
-                                            <p className={`text-xs truncate ${activeChat?.code === friend.code ? 'text-blue-100' : 'text-[var(--text-muted)]'}`}>
-                                                Public ID: {friend.code}
-                                            </p>
+                                        <div className={`flex-1 min-w-0 pb-3 pt-1 border-b ${activeChat?.code === friend.code ? 'border-transparent' : 'border-[var(--border)]'}`}>
+                                            <h3 className="font-semibold text-[17px] truncate text-white mb-0.5">{friend.displayName}</h3>
+                                            <p className="text-[14px] font-mono text-[var(--text-muted)]">#{friend.code}</p>
                                         </div>
                                     </div>
                                 ))
@@ -637,36 +627,36 @@
                     </div>
 
                     {/* CHAT AREA */}
-                    <div className={`flex-1 flex flex-col slide-panel absolute md:relative w-full h-full z-20 bg-black
+                    <div className={`flex-1 flex flex-col slide-panel absolute md:relative w-full h-full z-20 bg-[var(--bg-dark)]
                         ${activeChat ? 'translate-x-0' : 'translate-x-full md:translate-x-0'}`}>
                         
                         {activeChat ? (
                             <React.Fragment>
-                                <div className="glass-panel px-3 pt-10 pb-3 flex items-center sticky top-0 z-30 border-b border-[var(--border)]">
-                                    <button onClick={() => setActiveChat(null)} className="md:hidden flex items-center mr-2 btn-press text-[var(--primary)]">
+                                <div className="glass-panel px-2 pt-12 pb-3 flex items-center sticky top-0 z-30 border-b border-[var(--border)]">
+                                    <button onClick={() => setActiveChat(null)} className="md:hidden flex items-center py-2 pr-3 btn-press text-[var(--primary)]">
                                         <i className="ph-bold ph-caret-left text-3xl -ml-2"></i>
                                     </button>
-                                    <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-blue-500 to-cyan-400 flex items-center justify-center font-bold mr-3">
+                                    <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-blue-500 to-cyan-400 flex items-center justify-center font-bold mr-3 text-white">
                                         {activeChat.displayName.charAt(0).toUpperCase()}
                                     </div>
                                     <div className="flex flex-col">
-                                        <span className="font-bold text-base">{activeChat.displayName}</span>
-                                        <span className="text-xs text-[var(--text-muted)]">E2EE Secured</span>
+                                        <span className="font-bold text-[16px] text-white leading-tight">{activeChat.displayName}</span>
+                                        <span className="text-[12px] font-mono text-[var(--text-muted)] leading-tight">{activeChat.code}</span>
                                     </div>
                                 </div>
 
-                                <div className="flex-1 overflow-y-auto px-4 py-4 flex flex-col gap-1 hide-scrollbar">
+                                <div className="flex-1 overflow-y-auto px-4 py-4 flex flex-col gap-[2px] hide-scrollbar relative">
                                     {messages.map((msg, index, arr) => {
                                         const isMe = msg.sender === identity.code;
                                         const nextMsg = arr[index + 1];
                                         const isLast = !nextMsg || nextMsg.sender !== msg.sender;
-                                        const text = decryptedCache[msg.id] || "Decrypting...";
+                                        const text = decryptedCache[msg.id] || "...";
 
                                         return (
                                             <div key={msg.id} className={`flex w-full ${isMe ? 'justify-end' : 'justify-start'} ${isLast ? 'mb-3' : ''}`}>
-                                                <div className={`max-w-[75%] px-4 py-2 text-[15px] leading-relaxed break-words
-                                                        ${isMe ? 'bg-[var(--primary)] text-white rounded-[20px] rounded-br-sm' 
-                                                               : 'bg-[var(--surface)] border border-[var(--border)] text-white rounded-[20px] rounded-bl-sm'}`}>
+                                                <div className={`max-w-[78%] px-[16px] py-[10px] text-[16px] leading-[1.4] break-words
+                                                        ${isMe ? 'bg-[var(--primary)] text-white rounded-[20px] rounded-br-[4px]' 
+                                                               : 'bg-[var(--surface)] text-white rounded-[20px] rounded-bl-[4px]'}`}>
                                                     {text}
                                                 </div>
                                             </div>
@@ -675,23 +665,27 @@
                                     <div ref={messagesEndRef} className="h-4"></div>
                                 </div>
 
-                                <div className="glass-panel p-3 pb-8 md:pb-4 z-30">
+                                <div className="glass-panel p-2 pb-8 md:pb-4 z-30">
                                     <form onSubmit={handleSend} className="flex relative items-center gap-2">
-                                        <input 
-                                            type="text" value={inputText} onChange={(e) => setInputText(e.target.value)}
-                                            placeholder="Secure Message" 
-                                            className="flex-1 bg-[var(--surface)] border border-[var(--border)] rounded-full py-2.5 pl-5 pr-12 text-[15px] outline-none"
-                                        />
-                                        <button type="submit" disabled={!inputText.trim()} 
-                                            className={`absolute right-1.5 w-8 h-8 rounded-full flex items-center justify-center bg-[var(--primary)] text-white transition-opacity ${!inputText.trim() ? 'opacity-0 pointer-events-none' : 'opacity-100 btn-press'}`}>
-                                            <i className="ph-bold ph-arrow-up text-sm"></i>
-                                        </button>
+                                        <button type="button" className="p-2 text-[var(--text-muted)] btn-press"><i className="ph-bold ph-plus text-2xl"></i></button>
+                                        <div className="flex-1 relative">
+                                            <input 
+                                                type="text" value={inputText} onChange={(e) => setInputText(e.target.value)}
+                                                placeholder="Pesan Terenkripsi" 
+                                                className="w-full bg-[var(--surface)] border border-[var(--border)] rounded-full py-[8px] pl-4 pr-10 text-[16px] outline-none text-white focus:border-[var(--text-muted)] transition-colors"
+                                            />
+                                            {inputText.trim() && (
+                                                <button type="submit" className="absolute right-1 bottom-1 w-[30px] h-[30px] rounded-full flex items-center justify-center bg-[var(--primary)] text-white btn-press">
+                                                    <i className="ph-bold ph-arrow-up text-sm"></i>
+                                                </button>
+                                            )}
+                                        </div>
                                     </form>
                                 </div>
                             </React.Fragment>
                         ) : (
-                            <div className="hidden md:flex flex-1 items-center justify-center flex-col opacity-10">
-                                <i className="ph-fill ph-lock-key text-8xl mb-4"></i>
+                            <div className="hidden md:flex flex-1 items-center justify-center flex-col opacity-5">
+                                <i className="ph-fill ph-lock-key text-9xl mb-4"></i>
                             </div>
                         )}
                     </div>
