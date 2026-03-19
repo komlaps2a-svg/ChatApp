@@ -76,6 +76,13 @@
         // ==========================================
         // [UTILS] CRYPTO ENGINE & KEY WRAPPING
         // ==========================================
+        const withTimeout = (promise, ms, errorMsg) => {
+            return Promise.race([
+                promise,
+                new Promise((_, reject) => setTimeout(() => reject(new Error(errorMsg)), ms))
+            ]);
+        };
+
         const CryptoUtils = {
             async generateKeypair() { 
                 return await window.crypto.subtle.generateKey({ name: "ECDH", namedCurve: "P-256" }, true, ["deriveKey", "deriveBits"]); 
@@ -111,12 +118,12 @@
 
         const LocalDB = {
             async init() {
-                return new Promise((resolve, reject) => {
+                return withTimeout(new Promise((resolve, reject) => {
                     const req = indexedDB.open("GhostProtocolDB_V3", 1);
                     req.onupgradeneeded = e => { e.target.result.createObjectStore("identity", { keyPath: "id" }); };
                     req.onsuccess = e => resolve(e.target.result);
-                    req.onerror = e => reject(e);
-                });
+                    req.onerror = e => reject(new Error("LocalDB Error: " + e.target.error));
+                }), 4000, "Akses penyimpanan memori diblokir. Matikan mode Private/Incognito browser.");
             },
             async saveIdentity(code, privateKeyJWK, publicKeyJWK, displayName) {
                 const db = await this.init();
@@ -308,17 +315,21 @@
                     const finalKey = `${code}.${passphrase}`;
                     setGeneratedRecoveryKey(finalKey);
 
-                    // Save Cloud DB
+                    // Save Cloud DB (Dilengkapi Circuit Breaker 10 Detik)
                     const { db, fbDb } = fbModules;
                     const userDocRef = isCanvasEnv 
                         ? fbDb.doc(db, 'artifacts', APP_ID, 'public', 'data', 'users', code)
                         : fbDb.doc(db, 'users', code);
                     
-                    await fbDb.setDoc(userDocRef, {
-                        code, displayName: setupName.trim(), publicKeyJWK: pubJWK,
-                        encryptedPrivKey: encryptedPrivKeyData,
-                        createdAt: Date.now()
-                    });
+                    await withTimeout(
+                        fbDb.setDoc(userDocRef, {
+                            code, displayName: setupName.trim(), publicKeyJWK: pubJWK,
+                            encryptedPrivKey: encryptedPrivKeyData,
+                            createdAt: Date.now()
+                        }),
+                        10000,
+                        "Koneksi Firestore menggantung. Pastikan Anda sudah mengklik 'Create Database' di menu Firestore Firebase Console Anda."
+                    );
 
                     // Save Local DB
                     await LocalDB.saveIdentity(code, privJWK, pubJWK, setupName.trim());
