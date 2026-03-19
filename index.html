@@ -6,7 +6,7 @@
     <meta name="theme-color" content="#000000">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <title>Ghost Protocol V7 - Stories</title>
+    <title>Ghost Protocol V7.1</title>
     
     <script src="https://cdn.tailwindcss.com"></script>
     <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
@@ -27,6 +27,8 @@
         @keyframes slideDown { 0% { transform: translate(-50%, -100%); opacity: 0; } 100% { transform: translate(-50%, 0); opacity: 1; } }
         @keyframes fade { 0% { opacity: 0; } 100% { opacity: 1; } }
         .toast-enter { animation: slideDown 0.4s cubic-bezier(0.2, 0.8, 0.2, 1) forwards; } .modal-enter { animation: fade 0.3s ease-out forwards; }
+        
+        .msg-selected { background-color: rgba(10, 132, 255, 0.2) !important; border: 1px solid var(--primary) !important; }
         
         /* FILTERS */
         .filter-normal { filter: none; }
@@ -70,7 +72,7 @@
         const swUrl = URL.createObjectURL(blob);
         if ('serviceWorker' in navigator) navigator.serviceWorker.register(swUrl).catch(()=>{});
 
-        const DICT = ["air", "api", "angin", "bumi", "batu", "bulan", "bintang", "cahaya", "cinta", "damai", "dunia", "emas", "embun", "fajar"];
+        const DICT = ["air", "api", "angin", "bumi", "batu", "bulan", "bintang", "cahaya", "cinta", "damai", "daun", "dunia", "emas", "embun", "fajar"];
         const withTimeout = (promise, ms, errorMsg) => Promise.race([promise, new Promise((_, reject) => setTimeout(() => reject(new Error(errorMsg)), ms))]);
 
         const CryptoUtils = {
@@ -117,7 +119,6 @@
                     }
                 } catch (e) { return { type: 'error', data: "🔒 [Decryption Failed]" }; }
             },
-            // STORY KEY WRAPPING E2EE LOGIC
             async generateStoryKey() {
                 const rawKey = window.crypto.getRandomValues(new Uint8Array(32));
                 const cryptoKey = await crypto.subtle.importKey("raw", rawKey, "AES-GCM", true, ["encrypt", "decrypt"]);
@@ -197,32 +198,84 @@
             const [messages, setMessages] = React.useState([]);
             const [decryptedCache, setDecryptedCache] = React.useState({});
             const [inputText, setInputText] = React.useState('');
+            const [isRecording, setIsRecording] = React.useState(false);
 
             // Story State
             const [stories, setStories] = React.useState([]);
-            const [storyMode, setStoryMode] = React.useState(null); // 'create' | 'view'
+            const [storyMode, setStoryMode] = React.useState(null); 
             const [viewingStoryIdx, setViewingStoryIdx] = React.useState(0);
-            const [activeStoryGroup, setActiveStoryGroup] = React.useState([]); // Stories from one user
+            const [activeStoryGroup, setActiveStoryGroup] = React.useState([]); 
             const [storyProgress, setStoryProgress] = React.useState(0);
             const storyIntervalRef = React.useRef(null);
 
             // Creator State
-            const [creatorType, setCreatorType] = React.useState('camera'); // 'camera' | 'text'
+            const [creatorType, setCreatorType] = React.useState('camera'); 
             const [creatorFilter, setCreatorFilter] = React.useState('filter-normal');
             const [creatorText, setCreatorText] = React.useState('');
             const [creatorBg, setCreatorBg] = React.useState('bg-gradient-to-tr from-blue-600 to-purple-600');
             const [isRecordingStory, setIsRecordingStory] = React.useState(false);
-            const [recordedMedia, setRecordedMedia] = React.useState(null); // {blob, type}
+            const [recordedMedia, setRecordedMedia] = React.useState(null); 
+            
             const creatorVideoRef = React.useRef(null);
             const creatorStreamRef = React.useRef(null);
             const storyMediaRecorderRef = React.useRef(null);
             const storyChunksRef = React.useRef([]);
             
-            const [toast, setToast] = React.useState(null);
+            // WebRTC & Chat Refs
+            const pcRef = React.useRef(null);
+            const localStreamRef = React.useRef(null);
+            const remoteStreamRef = React.useRef(new MediaStream()); 
+            const pendingCandidatesRef = React.useRef([]); 
+            const localVideoRef = React.useRef(null);
+            const remoteVideoRef = React.useRef(null);
+            const [rtcState, setRtcState] = React.useState(null); 
+            const [callType, setCallType] = React.useState('video');
+
+            const messagesEndRef = React.useRef(null);
+            const mediaRecorderRef = React.useRef(null);
+            const audioChunksRef = React.useRef([]);
+            const fileInputRef = React.useRef(null);
+
             const [setupName, setSetupName] = React.useState("");
             const [recoveryKeyInput, setRecoveryKeyInput] = React.useState("");
+            const [generatedRecoveryKey, setGeneratedRecoveryKey] = React.useState("");
+            const [addCodeInput, setAddCodeInput] = React.useState("");
+            const [activeModal, setActiveModal] = React.useState(null);
+            const [toast, setToast] = React.useState(null);
+            const [dialog, setDialog] = React.useState({ show: false, title: '', msg: '', onConfirm: null, isDestructive: false });
+            const [chatMenuOpen, setChatMenuOpen] = React.useState(false);
+            const [isSelecting, setIsSelecting] = React.useState(false);
+            const [selectedMsgs, setSelectedMsgs] = React.useState([]);
 
             const showToast = (msg, icon = "ph-info") => { setToast({ msg, icon }); setTimeout(() => setToast(null), 3000); };
+            const triggerDialog = (title, msg, onConfirm, isDestructive = false) => { setDialog({ show: true, title, msg, onConfirm, isDestructive }); setChatMenuOpen(false); };
+
+            const pushOSNotification = async (title, body) => {
+                if (!("Notification" in window)) return;
+                if (Notification.permission === "granted") {
+                    try {
+                        const reg = await navigator.serviceWorker.ready;
+                        reg.showNotification(title, { body, icon: "https://cdn-icons-png.flaticon.com/512/3064/3064048.png", vibrate: [200, 100, 200], requireInteraction: true, badge: "https://cdn-icons-png.flaticon.com/512/3064/3064048.png" });
+                    } catch (e) { new Notification(title, { body, icon: "https://cdn-icons-png.flaticon.com/512/3064/3064048.png" }); }
+                }
+            };
+
+            const migrateOldDB = async () => {
+                return new Promise((resolve) => {
+                    const req = indexedDB.open("GhostProtocolDB_V6", 1);
+                    req.onsuccess = e => {
+                        const db = e.target.result;
+                        if (!db.objectStoreNames.contains("identity")) return resolve(null);
+                        const tx = db.transaction("identity", "readonly").objectStore("identity").get("active");
+                        tx.onsuccess = async () => {
+                            if (tx.result) await LocalDB.saveIdentity(tx.result.code, tx.result.privateKeyJWK, tx.result.publicKeyJWK, tx.result.displayName);
+                            resolve(tx.result);
+                        };
+                        tx.onerror = () => resolve(null);
+                    };
+                    req.onerror = () => resolve(null);
+                });
+            };
 
             React.useEffect(() => {
                 const initSystem = async () => {
@@ -239,13 +292,17 @@
                         const db = fbDb.getFirestore(app);
                         const storage = fbStorage.getStorage(app);
 
-                        setFbModules({ auth, db, storage, fbAuth, fbDb, fbStorage });
+                        setFbModules({ auth, db, storage, fbAuth, fbDb, fbStorage, arrayUnion: fbDb.arrayUnion });
                         await fbAuth.setPersistence(auth, fbAuth.browserLocalPersistence);
                         await fbAuth.signInAnonymously(auth);
+
+                        if ("Notification" in window && Notification.permission === "default") Notification.requestPermission();
 
                         fbAuth.onAuthStateChanged(auth, async (u) => {
                             if (u) {
                                 let localData = await LocalDB.getIdentity();
+                                if (!localData) localData = await migrateOldDB();
+
                                 if (localData) {
                                     try {
                                         const privKey = await CryptoUtils.importPrivateKey(localData.privateKeyJWK);
@@ -261,24 +318,20 @@
                 initSystem();
             }, []);
 
+            React.useEffect(() => { if(!isSelecting) messagesEndRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages, decryptedCache, isSelecting]);
+
             // Fetch Contacts & Stories
             React.useEffect(() => {
                 if (!fbReady || !identity || authView !== "main") return;
                 const { db, fbDb } = fbModules;
                 
-                // Contacts
                 const unsubContacts = fbDb.onSnapshot(fbDb.collection(db, 'users', identity.code, 'contacts'), (snap) => setFriends(snap.docs.map(d => d.data())));
 
-                // Stories (Fetch stories where I am sender OR I am in the encryptedKeys map)
-                const twentyFourHoursAgo = Date.now() - (24 * 60 * 60 * 1000);
                 const storiesQuery = fbDb.query(fbDb.collection(db, 'stories'), fbDb.where('expiresAt', '>', Date.now()));
-                
                 const unsubStories = fbDb.onSnapshot(storiesQuery, async (snap) => {
                     let fetchedStories = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-                    // Filter: I am sender, OR I have a key
                     fetchedStories = fetchedStories.filter(s => s.sender === identity.code || s.encryptedKeys[identity.code]);
                     
-                    // Group by sender
                     const grouped = {};
                     fetchedStories.forEach(s => {
                         if (!grouped[s.sender]) grouped[s.sender] = [];
@@ -290,25 +343,186 @@
                         grouped[sender].sort((a,b) => a.timestamp - b.timestamp);
                         const friendData = sender === identity.code ? identity : friends.find(f => f.code === sender);
                         if (friendData) {
-                            finalStories.push({
-                                senderCode: sender,
-                                displayName: friendData.displayName,
-                                items: grouped[sender]
-                            });
+                            finalStories.push({ senderCode: sender, displayName: friendData.displayName, items: grouped[sender] });
                         }
                     }
-                    // Sort: My stories first, then others by latest
                     finalStories.sort((a, b) => {
                         if (a.senderCode === identity.code) return -1;
                         if (b.senderCode === identity.code) return 1;
                         return b.items[b.items.length-1].timestamp - a.items[a.items.length-1].timestamp;
                     });
-                    
                     setStories(finalStories);
                 });
 
                 return () => { unsubContacts(); unsubStories(); };
-            }, [fbReady, identity, authView, friends.length]); // Added friends.length to re-run when friends load
+            }, [fbReady, identity, authView, friends.length]); 
+
+            // Fetch Chat Messages
+            React.useEffect(() => {
+                if (!fbReady || !identity || !activeChat || authView !== "main") return;
+                const { db, fbDb } = fbModules;
+                const chatId = [identity.code, activeChat.code].sort().join('_');
+                
+                const unsubChat = fbDb.onSnapshot(fbDb.collection(db, `chats_${chatId}`), async (snapshot) => {
+                    let msgs = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+                    msgs = msgs.filter(m => !(m.deletedFor || []).includes(identity.code));
+                    msgs.sort((a, b) => a.timestamp - b.timestamp);
+                    setMessages(msgs);
+
+                    const sharedSecret = await CryptoUtils.deriveSharedSecret(identity.privateKey, activeChat.publicKeyJWK);
+                    const newDecrypted = { ...decryptedCache };
+                    let changed = false;
+                    let latestReceivedMsg = null;
+
+                    for (let msg of msgs) {
+                        if (!newDecrypted[msg.id]) {
+                            const clearData = await CryptoUtils.decryptPayload(msg.payload, sharedSecret);
+                            if (['audio', 'image', 'video'].includes(clearData.type)) newDecrypted[msg.id] = { type: clearData.type, url: URL.createObjectURL(clearData.data) };
+                            else newDecrypted[msg.id] = { type: 'text', text: clearData.data };
+                            changed = true;
+                            if (msg.sender !== identity.code) latestReceivedMsg = clearData;
+                        }
+                    }
+                    if (changed) {
+                        setDecryptedCache(newDecrypted);
+                        if (latestReceivedMsg) {
+                            showToast("Pesan Baru", "ph-chat-circle");
+                            if (document.hidden) pushOSNotification(`Pesan dari ${activeChat.displayName}`, latestReceivedMsg.type === 'text' ? latestReceivedMsg.text : `Mengirim ${latestReceivedMsg.type}`);
+                        }
+                    }
+                });
+
+                const unsubSignal = fbDb.onSnapshot(fbDb.doc(db, `chats_${chatId}_signal`, 'room'), (doc) => {
+                    const data = doc.data();
+                    if (!data) return;
+                    if (data.offer && data.caller !== identity.code && !rtcState) {
+                        setCallType(data.callType || 'video');
+                        setRtcState('receiving');
+                        if (document.hidden) pushOSNotification(`Panggilan ${data.callType === 'video' ? 'Video' : 'Suara'}`, `Masuk dari ${activeChat.displayName}`);
+                    }
+                    if (data.hangup && rtcState) {
+                        endCallCleanup();
+                        showToast("Panggilan Diakhiri", "ph-phone-slash");
+                    }
+                });
+
+                return () => { unsubChat(); unsubSignal(); endCallCleanup(); };
+            }, [fbReady, identity, activeChat, authView]);
+
+            // --- WEBRTC CORE ---
+            React.useEffect(() => {
+                if (rtcState === 'connected' || rtcState === 'calling') {
+                    if (localVideoRef.current && localStreamRef.current) { localVideoRef.current.srcObject = localStreamRef.current; localVideoRef.current.play().catch(()=>{}); }
+                    if (remoteVideoRef.current && remoteStreamRef.current) { remoteVideoRef.current.srcObject = remoteStreamRef.current; remoteVideoRef.current.play().catch(()=>{}); }
+                }
+            }, [rtcState]);
+
+            const setupMediaTracks = async (video) => {
+                try {
+                    const stream = await navigator.mediaDevices.getUserMedia({ 
+                        video: video ? { facingMode: "user", width: { ideal: 1280 }, height: { ideal: 720 } } : false, 
+                        audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true } 
+                    });
+                    localStreamRef.current = stream;
+                    if (localVideoRef.current) localVideoRef.current.srcObject = stream;
+                    stream.getTracks().forEach(track => pcRef.current.addTrack(track, stream));
+                } catch(e) { showToast("Gagal akses kamera/mikrofon.", "ph-warning"); throw e; }
+            };
+
+            const initializePeerConnection = (db, fbDb, chatId, role) => {
+                pcRef.current = new RTCPeerConnection(STUN_SERVERS);
+                remoteStreamRef.current = new MediaStream(); 
+                pendingCandidatesRef.current = []; 
+                pcRef.current.ontrack = event => {
+                    event.streams[0].getTracks().forEach(track => { remoteStreamRef.current.addTrack(track); });
+                    if (remoteVideoRef.current && remoteVideoRef.current.srcObject !== remoteStreamRef.current) remoteVideoRef.current.srcObject = remoteStreamRef.current;
+                };
+                const candidatesRef = fbDb.collection(db, `chats_${chatId}_signal`, 'room', role === 'caller' ? 'callerCandidates' : 'calleeCandidates');
+                pcRef.current.onicecandidate = event => { if (event.candidate) fbDb.addDoc(candidatesRef, event.candidate.toJSON()); };
+            };
+
+            const endCallCleanup = async () => {
+                if (pcRef.current) { pcRef.current.close(); pcRef.current = null; }
+                if (localStreamRef.current) { localStreamRef.current.getTracks().forEach(t => t.stop()); localStreamRef.current = null; }
+                if (remoteStreamRef.current) { remoteStreamRef.current.getTracks().forEach(t => t.stop()); }
+                setRtcState(null);
+            };
+
+            const initiateCall = async (type) => {
+                setChatMenuOpen(false); setCallType(type); setRtcState('calling');
+                const { db, fbDb } = fbModules;
+                const chatId = [identity.code, activeChat.code].sort().join('_');
+                const roomRef = fbDb.doc(db, `chats_${chatId}_signal`, 'room');
+                
+                await fbDb.setDoc(roomRef, { hangup: true }); 
+                initializePeerConnection(db, fbDb, chatId, 'caller');
+
+                try {
+                    await setupMediaTracks(type === 'video');
+                    const offer = await pcRef.current.createOffer();
+                    await pcRef.current.setLocalDescription(offer);
+                    await fbDb.setDoc(roomRef, { offer: { type: offer.type, sdp: offer.sdp }, caller: identity.code, callType: type, hangup: false });
+
+                    fbDb.onSnapshot(roomRef, async snapshot => {
+                        const data = snapshot.data();
+                        if (!pcRef.current?.currentRemoteDescription && data?.answer) {
+                            await pcRef.current.setRemoteDescription(new RTCSessionDescription(data.answer));
+                            setRtcState('connected');
+                            pendingCandidatesRef.current.forEach(c => pcRef.current.addIceCandidate(c).catch(()=>{}));
+                            pendingCandidatesRef.current = [];
+                        }
+                    });
+                    fbDb.onSnapshot(fbDb.collection(db, `chats_${chatId}_signal`, 'room', 'calleeCandidates'), snapshot => {
+                        snapshot.docChanges().forEach(async change => {
+                            if (change.type === 'added' && pcRef.current) {
+                                const candidate = new RTCIceCandidate(change.doc.data());
+                                if (pcRef.current.remoteDescription) await pcRef.current.addIceCandidate(candidate);
+                                else pendingCandidatesRef.current.push(candidate);
+                            }
+                        });
+                    });
+                } catch(e) { endCallCleanup(); }
+            };
+
+            const answerCall = async () => {
+                setRtcState('connected'); 
+                const { db, fbDb } = fbModules;
+                const chatId = [identity.code, activeChat.code].sort().join('_');
+                const roomRef = fbDb.doc(db, `chats_${chatId}_signal`, 'room');
+
+                initializePeerConnection(db, fbDb, chatId, 'callee');
+
+                try {
+                    await setupMediaTracks(callType === 'video');
+                    const roomSnapshot = await fbDb.getDoc(roomRef);
+                    const roomData = roomSnapshot.data();
+                    await pcRef.current.setRemoteDescription(new RTCSessionDescription(roomData.offer));
+                    
+                    const answer = await pcRef.current.createAnswer();
+                    await pcRef.current.setLocalDescription(answer);
+                    await fbDb.updateDoc(roomRef, { answer: { type: answer.type, sdp: answer.sdp } });
+
+                    pendingCandidatesRef.current.forEach(c => pcRef.current.addIceCandidate(c).catch(()=>{}));
+                    pendingCandidatesRef.current = [];
+
+                    fbDb.onSnapshot(fbDb.collection(db, `chats_${chatId}_signal`, 'room', 'callerCandidates'), snapshot => {
+                        snapshot.docChanges().forEach(async change => {
+                            if (change.type === 'added' && pcRef.current) {
+                                const candidate = new RTCIceCandidate(change.doc.data());
+                                if (pcRef.current.remoteDescription) await pcRef.current.addIceCandidate(candidate);
+                                else pendingCandidatesRef.current.push(candidate);
+                            }
+                        });
+                    });
+                } catch(e) { endCallCleanup(); }
+            };
+
+            const hangupCall = async () => {
+                const { db, fbDb } = fbModules;
+                const chatId = [identity.code, activeChat.code].sort().join('_');
+                await fbDb.setDoc(fbDb.doc(db, `chats_${chatId}_signal`, 'room'), { hangup: true }, { merge: true });
+                endCallCleanup();
+            };
 
             // --- STORY UPLOAD LOGIC ---
             const publishStory = async (type, mediaBlob = null, textContent = null) => {
@@ -323,9 +537,7 @@
                         const encryptedText = await CryptoUtils.encryptText(textContent, cryptoKey);
                         payloadData = { isText: true, iv: encryptedText.iv, data: encryptedText.data, bg: creatorBg };
                     } else {
-                        // Max 5 minutes Check (aprox via blob size if needed, but UI enforces it)
                         if (mediaBlob.size > 25000000) throw new Error("File terlalu besar. Max ~25MB untuk E2EE stabil.");
-                        
                         const arrayBuffer = await mediaBlob.arrayBuffer();
                         const { iv, blob } = await CryptoUtils.encryptStoryMedia(arrayBuffer, cryptoKey);
                         
@@ -336,7 +548,6 @@
                         payloadData = { isText: false, url, iv, mediaType: type, filter: creatorFilter };
                     }
 
-                    // Wrap key for ALL friends + Self
                     const encryptedKeys = {};
                     const targets = [...friends, identity];
                     for (let target of targets) {
@@ -344,25 +555,12 @@
                         encryptedKeys[target.code] = await CryptoUtils.wrapKeyForFriend(rawKey, sharedSecret);
                     }
 
-                    await fbDb.addDoc(fbDb.collection(db, 'stories'), {
-                        sender: identity.code,
-                        timestamp: Date.now(),
-                        expiresAt: Date.now() + (24 * 60 * 60 * 1000), // 24H
-                        encryptedKeys,
-                        payload: payloadData
-                    });
-
+                    await fbDb.addDoc(fbDb.collection(db, 'stories'), { sender: identity.code, timestamp: Date.now(), expiresAt: Date.now() + (24 * 60 * 60 * 1000), encryptedKeys, payload: payloadData });
                     showToast("Story Dibagikan", "ph-check-circle");
                     closeStoryCreator();
-                } catch (e) {
-                    showToast("Gagal Upload: " + e.message, "ph-warning");
-                    console.error(e);
-                } finally {
-                    setLoadingState("");
-                }
+                } catch (e) { showToast("Gagal Upload: " + e.message, "ph-warning"); } finally { setLoadingState(""); }
             };
 
-            // --- STORY CAMERA LOGIC ---
             const openStoryCreator = async () => {
                 setStoryMode('create'); setRecordedMedia(null); setCreatorType('camera');
                 try {
@@ -387,7 +585,6 @@
 
             const startStoryVideo = () => {
                 storyChunksRef.current = [];
-                // STRICT CONSTRAINT: 500kbps to ensure 5 mins fits in memory (~18MB)
                 const options = { mimeType: 'video/webm;codecs=vp8,opus', videoBitsPerSecond: 500000 };
                 storyMediaRecorderRef.current = new MediaRecorder(creatorStreamRef.current, options);
                 storyMediaRecorderRef.current.ondataavailable = e => { if(e.data.size > 0) storyChunksRef.current.push(e.data); };
@@ -398,19 +595,10 @@
                 };
                 storyMediaRecorderRef.current.start();
                 setIsRecordingStory(true);
-                
-                // HARD LIMIT 5 MINUTES (300,000 ms)
-                setTimeout(() => {
-                    if(storyMediaRecorderRef.current?.state === "recording") stopStoryVideo();
-                }, 300000); 
+                setTimeout(() => { if(storyMediaRecorderRef.current?.state === "recording") stopStoryVideo(); }, 300000); 
             };
-            const stopStoryVideo = () => {
-                if(storyMediaRecorderRef.current?.state === "recording") {
-                    storyMediaRecorderRef.current.stop(); setIsRecordingStory(false);
-                }
-            };
+            const stopStoryVideo = () => { if(storyMediaRecorderRef.current?.state === "recording") { storyMediaRecorderRef.current.stop(); setIsRecordingStory(false); } };
 
-            // --- STORY VIEWER LOGIC ---
             const [currentStoryContent, setCurrentStoryContent] = React.useState(null);
 
             const openStoryViewer = (group) => {
@@ -423,24 +611,20 @@
                 if(storyIntervalRef.current) clearInterval(storyIntervalRef.current);
 
                 try {
-                    // 1. Get encrypted key wrapper for ME
                     const myKeyWrapper = storyDoc.encryptedKeys[identity.code];
                     if(!myKeyWrapper) throw new Error("No key");
 
-                    // 2. Derive Shared Secret to unwrap StoryKey
                     const targetData = senderCode === identity.code ? identity : friends.find(f => f.code === senderCode);
                     const sharedSecret = await CryptoUtils.deriveSharedSecret(identity.privateKey, targetData.publicKeyJWK);
                     const rawStoryKeyArray = await CryptoUtils.unwrapKeyFromFriend(myKeyWrapper, sharedSecret);
 
-                    // 3. Decrypt Content
                     const payload = storyDoc.payload;
                     if (payload.isText) {
                         const cryptoKey = await crypto.subtle.importKey("raw", new Uint8Array(rawStoryKeyArray), "AES-GCM", false, ["decrypt"]);
                         const decText = await crypto.subtle.decrypt({ name: "AES-GCM", iv: new Uint8Array(payload.iv) }, cryptoKey, new Uint8Array(payload.data));
                         setCurrentStoryContent({ type: 'text', text: new TextDecoder().decode(decText), bg: payload.bg });
-                        startStoryTimer(5000); // 5 sec for text
+                        startStoryTimer(5000); 
                     } else {
-                        // Fetch Blob from Storage URL
                         const response = await fetch(payload.url);
                         const encryptedBlob = await response.blob();
                         const decryptedBuffer = await CryptoUtils.decryptStoryMedia(encryptedBlob, payload.iv, rawStoryKeyArray);
@@ -450,7 +634,6 @@
                         setCurrentStoryContent({ type: payload.mediaType, url, filter: payload.filter });
                         
                         if(payload.mediaType === 'image') startStoryTimer(5000);
-                        // For video, timer is handled by video onended event
                     }
                 } catch (e) {
                     setCurrentStoryContent({ type: 'error', text: "Gagal dekripsi." });
@@ -485,9 +668,187 @@
                 setStoryMode(null); setActiveStoryGroup([]);
             };
 
-            // Render Helpers
-            const handleRegister = async (e) => { e.preventDefault(); /* Sama seperti V6.2 */ };
-            // ... (Fungsi auth lainnya sengaja diringkas untuk space UI, mengacu pada struktur logika yg sudah paten)
+            // --- AUTH LOGIC ---
+            const handleRegister = async (e) => {
+                e.preventDefault();
+                if (!setupName.trim() || !fbModules) return;
+                if ("Notification" in window && Notification.permission !== "granted") Notification.requestPermission();
+                setLoadingState("Generating Wrapped Keys...");
+                try {
+                    const code = Array.from(window.crypto.getRandomValues(new Uint8Array(4))).map(b => b.toString(16).padStart(2, '0')).join('').toUpperCase();
+                    const keypair = await CryptoUtils.generateKeypair();
+                    const pubJWK = await CryptoUtils.exportKeyJWK(keypair.publicKey);
+                    const privJWK = await CryptoUtils.exportKeyJWK(keypair.privateKey);
+                    
+                    const randomWords = Array.from({length: 9}, () => DICT[Math.floor(Math.random() * DICT.length)]);
+                    const passphrase = randomWords.join("-");
+                    const wrapKey = await CryptoUtils.deriveWrapKey(passphrase, code);
+                    const encryptedPrivKeyData = await CryptoUtils.encryptText(JSON.stringify(privJWK), wrapKey);
+
+                    setGeneratedRecoveryKey(`${code}.${passphrase}`);
+                    const { db, fbDb } = fbModules;
+                    
+                    await withTimeout(fbDb.setDoc(fbDb.doc(db, 'users', code), { code, displayName: setupName.trim(), publicKeyJWK: pubJWK, encryptedPrivKey: encryptedPrivKeyData, createdAt: Date.now() }), 10000, "Koneksi ke server Database gagal.");
+                    await LocalDB.saveIdentity(code, privJWK, pubJWK, setupName.trim());
+                    setIdentity({ code, privateKey: keypair.privateKey, publicKeyJWK: pubJWK, displayName: setupName.trim() });
+                    setAuthView("key_reveal");
+                } catch (err) { setSysError(`REGISTRATION_FAILED: ${err.message}`); } finally { setLoadingState(""); }
+            };
+
+            const handleRestore = async (e) => {
+                e.preventDefault();
+                if (!recoveryKeyInput.trim() || !fbModules) return;
+                if ("Notification" in window && Notification.permission !== "granted") Notification.requestPermission();
+                setLoadingState("Fetching Identity...");
+                try {
+                    const cleanInput = recoveryKeyInput.replace(/\s+/g, '').trim();
+                    const parts = cleanInput.split('.');
+                    if (parts.length < 2) throw new Error("Format salah. Harus mengandung pemisah titik (.)");
+                    
+                    const code = parts[0].toUpperCase();
+                    const inputPassphrase = parts.slice(1).join('.').toLowerCase();
+
+                    const { db, fbDb } = fbModules;
+                    const snap = await fbDb.getDoc(fbDb.doc(db, 'users', code));
+                    if (!snap.exists()) throw new Error("Public ID tidak ditemukan di server.");
+                    
+                    const data = snap.data();
+                    if (!data.encryptedPrivKey) throw new Error("Data akun di server korup.");
+
+                    setLoadingState("Decrypting Key...");
+                    const wrapKey = await CryptoUtils.deriveWrapKey(inputPassphrase, code);
+                    const decryptedPrivString = await CryptoUtils.decryptText(data.encryptedPrivKey, wrapKey);
+                    
+                    if (decryptedPrivString.startsWith("🔒")) throw new Error("Kata kunci Mnemonic salah.");
+                    
+                    let privJWK;
+                    try { privJWK = JSON.parse(decryptedPrivString); } catch(e) { throw new Error("Gagal membaca struktur kunci."); }
+
+                    const privKey = await CryptoUtils.importPrivateKey(privJWK);
+                    await LocalDB.saveIdentity(code, privJWK, data.publicKeyJWK, data.displayName);
+                    setIdentity({ code, privateKey: privKey, publicKeyJWK: data.publicKeyJWK, displayName: data.displayName });
+                    setAuthView("main");
+                } catch (err) { showToast(err.message, "ph-warning"); } finally { setLoadingState(""); }
+            };
+
+            const executeLogout = async () => { 
+                const { fbAuth, auth } = fbModules;
+                await fbAuth.signOut(auth);
+                await LocalDB.wipeData(); 
+                setIdentity(null); setActiveChat(null); setAuthView("choice"); setActiveModal(null); setRecoveryKeyInput(""); setDialog({show:false}); 
+            };
+
+            const processAddFriend = async (codeToBind) => {
+                const code = codeToBind.toUpperCase();
+                if (code === identity.code) return showToast("Gagal: ID Sendiri.", "ph-warning");
+                if (friends.find(f => f.code === code)) return showToast("Kontak sudah ada.", "ph-info");
+
+                showToast("Menyelaraskan Koneksi...", "ph-spinner animate-spin");
+                const { db, fbDb } = fbModules;
+                
+                try {
+                    const snap = await fbDb.getDoc(fbDb.doc(db, 'users', code));
+                    if (!snap.exists()) return showToast("Public ID Invalid.", "ph-warning");
+                    const targetData = snap.data();
+                    await fbDb.setDoc(fbDb.doc(db, 'users', identity.code, 'contacts', code), { code: targetData.code, displayName: targetData.displayName, publicKeyJWK: targetData.publicKeyJWK });
+                    await fbDb.setDoc(fbDb.doc(db, 'users', code, 'contacts', identity.code), { code: identity.code, displayName: identity.displayName, publicKeyJWK: identity.publicKeyJWK });
+                    showToast("Koneksi Berhasil!", "ph-check-circle"); setActiveModal(null); setAddCodeInput("");
+                } catch (err) { showToast("Akses Ditolak Jaringan.", "ph-warning"); }
+            };
+
+            // --- CHAT MESSAGING LOGIC ---
+            const sendEncryptedPayload = async (payloadData) => {
+                const { db, fbDb } = fbModules;
+                const chatId = [identity.code, activeChat.code].sort().join('_');
+                await fbDb.addDoc(fbDb.collection(db, `chats_${chatId}`), { sender: identity.code, timestamp: Date.now(), payload: payloadData, status: 'sent', deletedFor: [] });
+            };
+
+            const handleSendText = async (e) => {
+                e.preventDefault();
+                if (!inputText.trim() || !activeChat || !fbModules) return;
+                const text = inputText.trim(); setInputText("");
+                try {
+                    const sharedSecret = await CryptoUtils.deriveSharedSecret(identity.privateKey, activeChat.publicKeyJWK);
+                    const encryptedPayload = await CryptoUtils.encryptText(text, sharedSecret);
+                    await sendEncryptedPayload(encryptedPayload);
+                } catch (error) { showToast("Gagal enkripsi teks.", "ph-warning"); }
+            };
+
+            const handleFileUpload = async (e) => {
+                const file = e.target.files[0];
+                if(!file || !activeChat) return;
+                if(file.size > 700000) return triggerDialog("Batas Memori", "Batas ukuran file E2EE adalah 700KB.", () => setDialog({show:false}));
+                
+                setToast({msg: "Mengenkripsi File...", icon: "ph-spinner animate-spin"});
+                try {
+                    const arrayBuffer = await file.arrayBuffer();
+                    const sharedSecret = await CryptoUtils.deriveSharedSecret(identity.privateKey, activeChat.publicKeyJWK);
+                    const type = file.type.startsWith('image/') ? 'image' : file.type.startsWith('video/') ? 'video' : 'error';
+                    if(type === 'error') return showToast("Format tidak didukung.", "ph-warning");
+                    const encryptedData = await CryptoUtils.encryptBinary(arrayBuffer, sharedSecret, type);
+                    await sendEncryptedPayload(encryptedData); showToast("File Terkirim", "ph-check-circle");
+                } catch (err) { showToast("Gagal memproses file.", "ph-warning"); } finally { e.target.value = ''; }
+            };
+
+            const startRecording = async () => {
+                try {
+                    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                    const mediaRecorder = new MediaRecorder(stream, { mimeType: 'audio/webm;codecs=opus' });
+                    mediaRecorderRef.current = mediaRecorder; audioChunksRef.current = [];
+                    mediaRecorder.ondataavailable = (e) => { if (e.data.size > 0) audioChunksRef.current.push(e.data); };
+                    mediaRecorder.onstop = async () => {
+                        stream.getTracks().forEach(t => t.stop());
+                        const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+                        if (audioBlob.size > 700000) return showToast("Durasi terlalu panjang", "ph-warning"); 
+                        setToast({msg: "Mengenkripsi VN...", icon: "ph-spinner animate-spin"});
+                        try {
+                            const arrayBuffer = await audioBlob.arrayBuffer();
+                            const sharedSecret = await CryptoUtils.deriveSharedSecret(identity.privateKey, activeChat.publicKeyJWK);
+                            const encryptedAudio = await CryptoUtils.encryptBinary(arrayBuffer, sharedSecret, 'audio');
+                            await sendEncryptedPayload(encryptedAudio); showToast("VN Terkirim", "ph-check-circle");
+                        } catch (error) { showToast("Gagal enkripsi VN.", "ph-warning"); }
+                    };
+                    mediaRecorder.start(); setIsRecording(true);
+                    setTimeout(() => { if(mediaRecorderRef.current?.state === "recording") stopRecording(); }, 15000);
+                } catch (err) { showToast("Izin mikrofon ditolak.", "ph-warning"); }
+            };
+
+            const stopRecording = () => { if (mediaRecorderRef.current?.state === "recording") { mediaRecorderRef.current.stop(); setIsRecording(false); } };
+
+            const toggleSelection = (id) => setSelectedMsgs(prev => prev.includes(id) ? prev.filter(m => m !== id) : [...prev, id]);
+
+            const executeDelete = async (type) => {
+                if (selectedMsgs.length === 0) return;
+                setDialog({show: false}); setToast({msg: "Menghapus...", icon: "ph-spinner animate-spin"});
+                const { db, fbDb, arrayUnion } = fbModules;
+                const chatId = [identity.code, activeChat.code].sort().join('_');
+                try {
+                    for (let msgId of selectedMsgs) {
+                        const msgRef = fbDb.doc(db, `chats_${chatId}`, msgId);
+                        if (type === 'me') await fbDb.updateDoc(msgRef, { deletedFor: arrayUnion(identity.code) });
+                        else if (type === 'all') await fbDb.deleteDoc(msgRef);
+                    }
+                    showToast("Pesan Dihapus", "ph-trash");
+                } catch(e) { showToast("Gagal menghapus", "ph-warning"); }
+                finally { setIsSelecting(false); setSelectedMsgs([]); }
+            };
+
+            const clearAllChats = async () => {
+                setDialog({show: false}); setToast({msg: "Membersihkan Riwayat...", icon: "ph-spinner animate-spin"});
+                const { db, fbDb, arrayUnion } = fbModules;
+                const chatId = [identity.code, activeChat.code].sort().join('_');
+                try {
+                    for (let msg of messages) await fbDb.updateDoc(fbDb.doc(db, `chats_${chatId}`, msg.id), { deletedFor: arrayUnion(identity.code) });
+                    showToast("Riwayat Bersih", "ph-check-circle");
+                } catch(e) { showToast("Gagal membersihkan", "ph-warning"); }
+            };
+
+            // --- RENDERERS ---
+            if (sysError) return (
+                <div className="h-screen flex items-center justify-center p-6 bg-black text-white">
+                    <div className="text-center w-full max-w-sm"><i className="ph-fill ph-warning-circle text-5xl mb-4 text-[var(--danger)]"></i><h1 className="text-xl font-bold mb-2">SYSTEM FAULT</h1><div className="bg-red-900/30 border border-red-500/30 p-4 rounded-xl text-left text-xs font-mono text-red-400 mt-4">{sysError}</div><button onClick={() => { localStorage.clear(); window.location.reload(); }} className="mt-6 w-full py-3 bg-[var(--surface)] rounded-xl font-bold">Hard Reboot</button></div>
+                </div>
+            );
 
             if (!fbReady || loadingState) return (
                 <div className="h-screen flex flex-col items-center justify-center bg-[var(--bg-dark)] z-[99999] absolute inset-0">
@@ -499,7 +860,6 @@
 
             return (
                 <div className="flex h-screen w-full overflow-hidden relative">
-                    {/* TOAST */}
                     {toast && (
                         <div className="absolute top-4 left-1/2 transform -translate-x-1/2 z-[100] toast-enter w-[90%] max-w-[320px]">
                             <div className="glass-panel px-5 py-3 rounded-full flex items-center gap-3 shadow-lg border border-white/10 justify-center">
@@ -508,7 +868,48 @@
                         </div>
                     )}
 
-                    {/* STORY CREATOR OVERLAY */}
+                    {dialog.show && (
+                        <div className="absolute inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm modal-enter">
+                            <div className="bg-[var(--surface)] w-full max-w-[300px] rounded-2xl flex flex-col items-center text-center dialog-enter shadow-2xl border border-[var(--border)] overflow-hidden">
+                                <div className="p-6 pb-5"><h3 className="font-bold text-lg mb-1">{dialog.title}</h3><p className="text-sm text-[var(--text-muted)] leading-tight">{dialog.msg}</p></div>
+                                <div className="flex w-full border-t border-[var(--border)] flex-col">
+                                    {dialog.onConfirm && <button onClick={dialog.onConfirm} className={`w-full py-3.5 font-bold btn-press border-b border-[var(--border)] ${dialog.isDestructive ? 'text-[var(--danger)]' : 'text-[var(--primary)]'}`}>Setuju</button>}
+                                    <button onClick={() => setDialog({show:false})} className="w-full py-3.5 text-[var(--primary)] font-semibold btn-press">Batal</button>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* OVERLAYS: WebRTC & Stories (Sama seperti V7) */}
+                    {rtcState && (
+                        <div className="call-container modal-enter">
+                            {rtcState === 'receiving' ? (
+                                <div className="flex-1 flex flex-col items-center justify-center bg-[var(--surface)] relative z-20">
+                                    <div className="w-32 h-32 rounded-full bg-gradient-to-tr from-blue-500 to-cyan-400 flex items-center justify-center text-5xl text-white shadow-[0_0_80px_rgba(10,132,255,0.5)] animate-pulse mb-8 border-4 border-white/20">{activeChat?.displayName.charAt(0)}</div>
+                                    <h2 className="text-3xl font-bold mb-2">{activeChat?.displayName}</h2>
+                                    <p className="text-[var(--text-muted)] mb-16 text-lg tracking-wide">Panggilan {callType === 'video' ? 'Video' : 'Suara'} E2EE...</p>
+                                    <div className="flex gap-12">
+                                        <button onClick={hangupCall} className="w-20 h-20 rounded-full bg-[var(--danger)] flex items-center justify-center btn-press shadow-xl border-4 border-red-400/30"><i className="ph-fill ph-phone-slash text-4xl text-white"></i></button>
+                                        <button onClick={answerCall} className="w-20 h-20 rounded-full bg-[var(--success)] flex items-center justify-center btn-press animate-bounce shadow-xl border-4 border-green-400/30"><i className="ph-fill ph-phone text-4xl text-white"></i></button>
+                                    </div>
+                                </div>
+                            ) : (
+                                <React.Fragment>
+                                    <div className="call-ui-overlay"></div>
+                                    <video ref={remoteVideoRef} autoPlay playsInline className="call-video"></video>
+                                    {callType === 'video' && <video ref={localVideoRef} autoPlay playsInline muted className="local-video"></video>}
+                                    <div className="absolute top-16 w-full text-center z-50">
+                                        <h2 className="text-2xl font-bold drop-shadow-lg text-white">{activeChat?.displayName}</h2>
+                                        <p className="text-sm font-mono text-white/90 bg-black/40 px-3 py-1 rounded-full inline-block mt-2 backdrop-blur-md">{rtcState === 'calling' ? 'Menghubungi...' : '🔒 Terenkripsi P2P'}</p>
+                                    </div>
+                                    <div className="call-controls">
+                                        <button onClick={hangupCall} className="w-16 h-16 rounded-full bg-[var(--danger)] flex items-center justify-center btn-press shadow-2xl border-2 border-white/20"><i className="ph-fill ph-phone-slash text-3xl text-white"></i></button>
+                                    </div>
+                                </React.Fragment>
+                            )}
+                        </div>
+                    )}
+
                     {storyMode === 'create' && (
                         <div className="fixed inset-0 z-[100] bg-black flex flex-col modal-enter">
                             <div className="absolute top-12 left-5 z-50">
@@ -525,7 +926,6 @@
                                         </div>
                                     )}
 
-                                    {/* Creator Controls */}
                                     <div className="absolute bottom-10 w-full flex flex-col items-center gap-6 z-50">
                                         {creatorType === 'camera' && (
                                             <div className="flex gap-3 overflow-x-auto w-full px-6 pb-2 hide-scrollbar justify-center">
@@ -578,10 +978,8 @@
                         </div>
                     )}
 
-                    {/* STORY VIEWER OVERLAY */}
                     {storyMode === 'view' && (
                         <div className="fixed inset-0 z-[100] bg-black flex flex-col">
-                            {/* Progress Bars */}
                             <div className="absolute top-12 left-0 w-full px-2 flex gap-1 z-50">
                                 {activeStoryGroup.map((_, idx) => (
                                     <div key={idx} className="h-1 flex-1 bg-white/30 rounded-full overflow-hidden">
@@ -590,16 +988,12 @@
                                 ))}
                             </div>
                             
-                            {/* Header */}
                             <div className="absolute top-16 left-4 z-50 flex items-center gap-3">
                                 <div className="w-10 h-10 rounded-full bg-gray-800 border border-white flex items-center justify-center text-white font-bold">{activeStoryGroup[0]?.sender === identity?.code ? 'Me' : friends.find(f=>f.code===activeStoryGroup[0]?.sender)?.displayName.charAt(0)}</div>
                                 <span className="text-white font-bold text-sm shadow-black drop-shadow-md">{activeStoryGroup[0]?.sender === identity?.code ? 'My Story' : friends.find(f=>f.code===activeStoryGroup[0]?.sender)?.displayName}</span>
-                                <span className="text-white/70 text-xs">{new Date(activeStoryGroup[viewingStoryIdx]?.timestamp).getHours()}:{String(new Date(activeStoryGroup[viewingStoryIdx]?.timestamp).getMinutes()).padStart(2,'0')}</span>
                             </div>
-
                             <button onClick={closeStoryViewer} className="absolute top-16 right-4 z-50 w-10 h-10 text-white drop-shadow-md"><i className="ph-bold ph-x text-2xl"></i></button>
 
-                            {/* Content */}
                             <div className="flex-1 relative flex items-center justify-center">
                                 {!currentStoryContent ? (
                                     <i className="ph ph-spinner animate-spin text-4xl text-white"></i>
@@ -615,8 +1009,6 @@
                                     <div className="text-white font-mono">{currentStoryContent.text}</div>
                                 )}
                             </div>
-
-                            {/* Navigation Taps */}
                             <div className="absolute inset-0 z-40 flex">
                                 <div className="w-1/3 h-full" onClick={prevStory}></div>
                                 <div className="w-2/3 h-full" onClick={nextStory}></div>
@@ -624,20 +1016,108 @@
                         </div>
                     )}
 
-                    {/* MAIN CHAT UI DENGAN STORY TRAY */}
+                    {activeModal && (
+                        <div className="absolute inset-0 z-[60] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md modal-enter">
+                            <div className="bg-[var(--surface)] w-full max-w-sm rounded-[32px] p-6 flex flex-col items-center text-center relative border border-[var(--border)] shadow-2xl dialog-enter">
+                                <button onClick={() => setActiveModal(null)} className="absolute top-5 right-5 w-8 h-8 flex items-center justify-center bg-white/10 rounded-full btn-press"><i className="ph-bold ph-x text-sm"></i></button>
+                                {activeModal === 'profile' && identity && (
+                                    <>
+                                        <div className="w-20 h-20 rounded-full bg-gradient-to-tr from-blue-500 to-cyan-400 flex items-center justify-center text-white font-bold text-3xl mb-4 shadow-lg">{identity.displayName.charAt(0)}</div>
+                                        <h3 className="font-bold text-2xl mb-1">{identity.displayName}</h3>
+                                        <div className="bg-black/60 px-6 py-4 rounded-2xl mt-4 mb-4 border border-white/5 w-full flex justify-between items-center cursor-pointer active:opacity-50 transition-opacity" onClick={() => { navigator.clipboard.writeText(identity.code); showToast("ID Disalin!", "ph-copy"); }}>
+                                            <p className="text-2xl font-mono tracking-[0.3em] text-[var(--primary)] font-bold">{identity.code}</p><i className="ph-bold ph-copy text-xl text-[var(--text-muted)]"></i>
+                                        </div>
+                                        <button onClick={() => triggerDialog("Hapus Data", "Kunci akan dihapus permanen.", executeLogout, true)} className="w-full py-4 rounded-xl mt-2 bg-red-500/10 text-[var(--danger)] font-bold text-[15px] btn-press border border-red-500/20">Log Out</button>
+                                    </>
+                                )}
+                                {activeModal === 'add' && (
+                                    <div className="w-full">
+                                        <div className="w-14 h-14 mx-auto bg-blue-500/10 rounded-full flex items-center justify-center mb-4"><i className="ph-fill ph-user-plus text-2xl text-[var(--primary)]"></i></div>
+                                        <h3 className="font-bold text-xl mb-4">Tambah Kontak</h3>
+                                        <form onSubmit={(e) => { e.preventDefault(); processAddFriend(addCodeInput); }}>
+                                            <input type="text" maxLength="8" placeholder="8-Digit ID Target" value={addCodeInput} onChange={e => setAddCodeInput(e.target.value)} className="w-full bg-black/60 border border-white/10 text-center font-mono text-xl tracking-[0.2em] px-4 py-4 rounded-2xl outline-none mb-4 uppercase text-white font-bold" />
+                                            <button type="submit" disabled={addCodeInput.length < 8} className={`w-full font-bold py-4 rounded-xl btn-press text-[var(--bg-dark)] bg-white mb-4 ${addCodeInput.length < 8 ? 'btn-disabled' : ''}`}>Sinkronisasi</button>
+                                        </form>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    )}
+
+                    {/* AUTH VIEWS (Diperbaiki & Dikembalikan penuh dari versi sebelumnya) */}
+                    {authView === "choice" && (
+                        <div className="h-screen w-full flex items-center justify-center p-6 bg-[var(--bg-dark)] relative z-10">
+                            <div className="w-full max-w-sm text-center">
+                                <div className="w-24 h-24 mx-auto bg-blue-500/10 rounded-[28px] flex items-center justify-center mb-6 border border-blue-500/20"><i className="ph-fill ph-shield-check text-5xl text-[var(--primary)]"></i></div>
+                                <h1 className="text-4xl font-bold mb-2 tracking-tight">Ghost Protocol</h1>
+                                <p className="text-sm mb-12 text-[var(--text-muted)]">Arsitektur E2EE Web Murni.</p>
+                                <div className="space-y-4">
+                                    <button onClick={() => setAuthView("register")} className="w-full py-4 rounded-2xl font-bold bg-[var(--primary)] text-white btn-press text-lg">Buat Identitas Baru</button>
+                                    <button onClick={() => setAuthView("login")} className="w-full py-4 rounded-2xl font-bold bg-[var(--surface)] text-white btn-press border border-[var(--border)] text-lg">Login Mnemonic</button>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {authView === "register" && (
+                        <div className="h-screen w-full flex items-center justify-center p-6 bg-[var(--bg-dark)] relative z-10">
+                            <button onClick={() => setAuthView("choice")} className="absolute top-6 left-4 text-[var(--primary)] flex items-center font-bold btn-press p-2"><i className="ph-bold ph-caret-left text-2xl"></i></button>
+                            <div className="w-full max-w-sm text-center">
+                                <h2 className="text-3xl font-bold mb-2">Display Name</h2>
+                                <p className="text-sm mb-8 text-[var(--text-muted)]">Alias publik Anda.</p>
+                                <form onSubmit={handleRegister}>
+                                    <input type="text" required placeholder="Alias" maxLength="20" className="w-full bg-[var(--surface)] border border-[var(--border)] text-white px-4 py-4 rounded-2xl outline-none mb-6 font-bold text-center text-xl" value={setupName} onChange={e => setSetupName(e.target.value)} />
+                                    <button type="submit" disabled={!setupName.trim()} className={`w-full py-4 rounded-2xl font-bold bg-[var(--primary)] text-white btn-press text-lg ${!setupName.trim() ? 'btn-disabled' : ''}`}>Generate RSA Keys</button>
+                                </form>
+                            </div>
+                        </div>
+                    )}
+
+                    {authView === "login" && (
+                        <div className="h-screen w-full flex items-center justify-center p-6 bg-[var(--bg-dark)] relative z-10">
+                            <button onClick={() => setAuthView("choice")} className="absolute top-6 left-4 text-[var(--primary)] flex items-center font-bold btn-press p-2"><i className="ph-bold ph-caret-left text-2xl"></i></button>
+                            <div className="w-full max-w-sm text-center">
+                                <h2 className="text-3xl font-bold mb-2">Restore Identity</h2>
+                                <p className="text-sm mb-6 text-[var(--text-muted)]">Format: ID.katakunci</p>
+                                <form onSubmit={handleRestore}>
+                                    <textarea required placeholder="A1B2C3D4.api-daun-..." rows="5" className="w-full bg-[var(--surface)] border border-[var(--border)] text-[16px] font-mono text-[var(--success)] px-5 py-4 rounded-2xl outline-none mb-6 resize-none leading-relaxed" value={recoveryKeyInput} onChange={e => setRecoveryKeyInput(e.target.value)} />
+                                    <button type="submit" disabled={!recoveryKeyInput.trim()} className={`w-full py-4 rounded-2xl font-bold bg-[var(--primary)] text-white btn-press text-lg ${!recoveryKeyInput.trim() ? 'btn-disabled' : ''}`}>Decrypt & Login</button>
+                                </form>
+                            </div>
+                        </div>
+                    )}
+
+                    {authView === "key_reveal" && (
+                        <div className="h-screen w-full flex items-center justify-center p-6 bg-[var(--bg-dark)] relative z-10">
+                            <div className="w-full max-w-sm text-center">
+                                <i className="ph-fill ph-warning text-6xl text-yellow-500 mb-6 drop-shadow-[0_0_15px_rgba(234,179,8,0.5)]"></i>
+                                <h2 className="text-2xl font-bold mb-2">Simpan Mnemonic Ini</h2>
+                                <p className="text-sm mb-6 text-[var(--text-muted)]">Teks ini SATU-SATUNYA alat login Anda kelak.</p>
+                                <div className="bg-[var(--surface)] p-6 rounded-3xl mb-8 border border-[var(--border)] text-left shadow-lg" onClick={() => {navigator.clipboard.writeText(generatedRecoveryKey); showToast("Disalin!", "ph-check-circle");}}>
+                                    <div className="text-[18px] font-mono text-[var(--success)] leading-relaxed selectable-text font-bold">{generatedRecoveryKey}</div>
+                                </div>
+                                <button onClick={() => setAuthView("main")} className="w-full py-4 rounded-2xl font-bold bg-[var(--primary)] text-white btn-press text-lg">Masuk ke Aplikasi</button>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* MAIN CHAT UI DENGAN STORY TRAY (Dikembalikan penuh) */}
                     {authView === "main" && (
-                        <div className="flex h-screen w-full relative">
+                        <React.Fragment>
                             <div className={`w-full md:w-[360px] flex-shrink-0 flex flex-col border-r border-[var(--border)] transition-transform z-10 ${activeChat ? '-translate-x-full md:translate-x-0 absolute md:relative h-full' : 'translate-x-0 relative h-full'}`}>
                                 <div className="glass-panel px-5 pt-14 pb-2 sticky top-0 z-20 border-b border-[var(--border)]">
                                     <div className="flex justify-between items-end mb-4">
                                         <h1 className="text-4xl font-bold tracking-tight">Ghost</h1>
-                                        <button onClick={() => { localStorage.clear(); window.location.reload(); }} className="w-10 h-10 rounded-full bg-red-500/20 text-[var(--danger)] flex items-center justify-center"><i className="ph-bold ph-power"></i></button>
+                                        <div className="flex gap-3">
+                                            <button onClick={() => setActiveModal('profile')} className="w-10 h-10 rounded-full flex items-center justify-center bg-[var(--surface)] btn-press border border-white/10"><i className="ph-fill ph-user text-xl text-[var(--primary)]"></i></button>
+                                            <button onClick={() => setActiveModal('add')} className="w-10 h-10 rounded-full flex items-center justify-center bg-[var(--primary)] btn-press"><i className="ph-bold ph-plus text-xl text-white"></i></button>
+                                        </div>
                                     </div>
                                     
                                     {/* STORY TRAY */}
                                     <div className="flex gap-4 overflow-x-auto hide-scrollbar pb-3 pt-1">
                                         <div className="flex flex-col items-center gap-1 cursor-pointer" onClick={openStoryCreator}>
-                                            <div className="w-16 h-16 rounded-full border-2 border-[var(--border)] border-dashed flex items-center justify-center text-[var(--primary)] bg-[var(--surface)] relative">
+                                            <div className="w-[58px] h-[58px] rounded-full border-2 border-[var(--border)] border-dashed flex items-center justify-center text-[var(--primary)] bg-[var(--surface)] relative">
                                                 <i className="ph-bold ph-plus text-2xl"></i>
                                             </div>
                                             <span className="text-[11px] font-semibold text-[var(--text-muted)]">Add Story</span>
@@ -646,7 +1126,7 @@
                                         {stories.map(group => (
                                             <div key={group.senderCode} className="flex flex-col items-center gap-1 cursor-pointer" onClick={() => openStoryViewer(group)}>
                                                 <div className="story-ring">
-                                                    <div className="w-[58px] h-[58px] story-avatar-inner flex items-center justify-center text-white font-bold text-xl">
+                                                    <div className="w-[54px] h-[54px] story-avatar-inner flex items-center justify-center text-white font-bold text-xl">
                                                         {group.displayName.charAt(0)}
                                                     </div>
                                                 </div>
@@ -659,25 +1139,92 @@
                                 <div className="flex-1 overflow-y-auto hide-scrollbar">
                                     {friends.map((f) => (
                                         <div key={f.code} onClick={() => setActiveChat(f)} className="cursor-pointer px-5 py-3 flex items-center gap-4 hover:bg-white/5 border-b border-[var(--border)]">
-                                            <div className="w-14 h-14 rounded-full bg-[var(--surface)] border border-white/10 flex items-center justify-center font-bold text-xl text-white">{f.displayName.charAt(0)}</div>
-                                            <div className="flex-1"><h3 className="font-bold text-[18px]">{f.displayName}</h3><p className="text-[14px] text-[var(--text-muted)] font-mono">Tap untuk chat E2EE</p></div>
+                                            <div className="w-14 h-14 rounded-full bg-gradient-to-tr from-blue-500 to-cyan-400 flex items-center justify-center font-bold text-xl text-white">{f.displayName.charAt(0)}</div>
+                                            <div className="flex-1"><h3 className="font-bold text-[18px]">{f.displayName}</h3><p className="text-[14px] text-[var(--text-muted)] font-mono">#{f.code}</p></div>
                                         </div>
                                     ))}
                                 </div>
                             </div>
                             
-                            {/* CHAT AREA PLACEHOLDER (Menjaga struktur tanpa kode panjang) */}
+                            {/* CHAT AREA (Dikembalikan utuh dari versi sebelumnya) */}
                             <div className={`flex-1 flex flex-col slide-panel absolute md:relative w-full h-full z-20 bg-[var(--bg-dark)] ${activeChat ? 'translate-x-0' : 'translate-x-full md:translate-x-0'}`}>
                                 {activeChat && (
-                                    <div className="w-full h-full flex items-center justify-center flex-col">
-                                        <button onClick={()=>setActiveChat(null)} className="md:hidden absolute top-12 left-4 w-10 h-10 bg-[var(--surface)] rounded-full text-white"><i className="ph-bold ph-caret-left"></i></button>
-                                        <i className="ph-fill ph-lock-key text-5xl text-[var(--border)] mb-4"></i>
-                                        <p className="text-[var(--text-muted)]">Ruang obrolan dengan {activeChat.displayName}</p>
-                                        <p className="text-xs text-white/30 font-mono mt-2">(UI Chat disederhanakan di snippet ini untuk fokus pada arsitektur Story E2EE)</p>
-                                    </div>
+                                    <React.Fragment>
+                                        <div className="glass-panel px-3 pt-12 pb-3 flex items-center sticky top-0 z-30 border-b border-[var(--border)] shadow-sm">
+                                            {isSelecting ? (
+                                                <div className="w-full flex items-center justify-between px-2">
+                                                    <button onClick={() => {setIsSelecting(false); setSelectedMsgs([]);}} className="text-[var(--primary)] font-semibold text-lg btn-press">Batal</button>
+                                                    <span className="font-bold text-lg">{selectedMsgs.length} Terpilih</span>
+                                                    <div className="flex gap-4">
+                                                        <button onClick={() => { if(selectedMsgs.length>0) triggerDialog("Hapus Untuk Saya", "Pesan akan hilang dari layar Anda saja.", () => executeDelete('me'), true); }} className="text-[var(--danger)] btn-press"><i className="ph-fill ph-eye-slash text-2xl"></i></button>
+                                                        <button onClick={() => { if(selectedMsgs.length>0) triggerDialog("Hapus Untuk Semua", "Pesan akan dimusnahkan dari server secara permanen.", () => executeDelete('all'), true); }} className="text-[var(--danger)] btn-press"><i className="ph-fill ph-trash text-2xl"></i></button>
+                                                    </div>
+                                                </div>
+                                            ) : (
+                                                <div className="w-full flex items-center relative">
+                                                    <button onClick={() => setActiveChat(null)} className="md:hidden flex items-center py-2 pr-2 text-[var(--primary)] btn-press"><i className="ph-bold ph-caret-left text-3xl -ml-2"></i></button>
+                                                    <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-blue-500 to-cyan-400 flex items-center justify-center font-bold mr-3 text-white">{activeChat.displayName.charAt(0)}</div>
+                                                    <div className="flex flex-col"><span className="font-bold text-[16px] text-white leading-tight">{activeChat.displayName}</span></div>
+                                                    
+                                                    <div className="ml-auto flex gap-4 pr-1 relative">
+                                                        <button onClick={() => initiateCall('video')} className="text-[var(--primary)] btn-press"><i className="ph-fill ph-video-camera text-2xl"></i></button>
+                                                        <button onClick={() => initiateCall('audio')} className="text-[var(--primary)] btn-press"><i className="ph-fill ph-phone text-2xl"></i></button>
+                                                        <button onClick={() => setChatMenuOpen(!chatMenuOpen)} className="text-[var(--primary)] btn-press"><i className="ph-bold ph-dots-three-circle text-2xl"></i></button>
+                                                        
+                                                        {chatMenuOpen && (
+                                                            <div className="absolute top-10 right-0 w-48 bg-[var(--surface)] border border-[var(--border)] rounded-2xl shadow-2xl py-2 z-50">
+                                                                <button onClick={() => {setIsSelecting(true); setChatMenuOpen(false);}} className="w-full text-left px-4 py-3 border-b border-[var(--border)] font-semibold active:bg-white/10">Pilih & Hapus Pesan</button>
+                                                                <button onClick={() => triggerDialog("Bersihkan Obrolan", "Menghapus seluruh riwayat chat untuk Anda?", clearAllChats, true)} className="w-full text-left px-4 py-3 text-[var(--danger)] font-semibold active:bg-white/10">Bersihkan Chat</button>
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </div>
+
+                                        <div className="flex-1 overflow-y-auto px-4 py-5 flex flex-col gap-[4px] hide-scrollbar relative" onClick={() => setChatMenuOpen(false)}>
+                                            {messages.map((msg, index, arr) => {
+                                                const isMe = msg.sender === identity.code;
+                                                const isLast = !arr[index + 1] || arr[index + 1].sender !== msg.sender;
+                                                const content = decryptedCache[msg.id];
+                                                const isSelected = selectedMsgs.includes(msg.id);
+
+                                                return (
+                                                    <div key={msg.id} onClick={() => isSelecting && toggleSelection(msg.id)} className={`flex w-full ${isMe ? 'justify-end' : 'justify-start'} ${isLast ? 'mb-4' : ''} ${isSelecting ? 'cursor-pointer' : ''}`}>
+                                                        {isSelecting && <div className="w-6 h-6 rounded-full border border-[var(--border)] mr-3 flex items-center justify-center mt-2">{isSelected && <div className="w-4 h-4 rounded-full bg-[var(--primary)]"></div>}</div>}
+                                                        <div className={`max-w-[80%] px-[16px] py-[10px] text-[16px] leading-[1.4] break-words overflow-hidden shadow-sm transition-colors ${isSelected ? 'msg-selected' : isMe ? 'bg-[var(--primary)] text-white rounded-[20px] rounded-br-[4px]' : 'bg-[var(--surface)] text-white rounded-[20px] rounded-bl-[4px] border border-white/5'}`}>
+                                                            {!content ? <i className="ph animate-spin ph-spinner"></i> : content.type === 'audio' ? <audio controls src={content.url} className="h-10 w-48 custom-audio"></audio> : content.type === 'image' ? <img src={content.url} className="w-full rounded-lg max-h-64 object-cover" alt="Image"/> : content.type === 'video' ? <video controls src={content.url} className="w-full rounded-lg max-h-64"></video> : content.text}
+                                                        </div>
+                                                    </div>
+                                                );
+                                            })}
+                                            <div ref={messagesEndRef} className="h-6"></div>
+                                        </div>
+
+                                        {!isSelecting && (
+                                            <div className="glass-panel p-3 pb-8 md:pb-4 z-30 border-t border-[var(--border)]">
+                                                <form onSubmit={handleSendText} className="flex relative items-end gap-3 max-w-4xl mx-auto">
+                                                    <input type="file" ref={fileInputRef} accept="image/*,video/*" className="hidden" onChange={handleFileUpload} />
+                                                    <button type="button" onClick={() => fileInputRef.current.click()} className="p-2 mb-1 text-[var(--text-muted)] btn-press"><i className="ph-bold ph-plus text-[26px]"></i></button>
+                                                    <div className="flex-1 relative">
+                                                        {isRecording ? (
+                                                            <div className="w-full bg-red-500/20 text-[var(--danger)] border border-red-500/50 rounded-3xl py-3 pl-4 text-[15px] font-bold animate-pulse text-center">Rekaman Suara E2EE Aktif...</div>
+                                                        ) : (
+                                                            <textarea value={inputText} onChange={(e) => setInputText(e.target.value)} placeholder="iMessage" rows="1" className="w-full bg-[var(--surface)] border border-[var(--border)] rounded-3xl py-[10px] pl-5 pr-12 text-[16px] outline-none text-white focus:border-[var(--text-muted)] transition-colors resize-none hide-scrollbar" style={{ minHeight: '44px', maxHeight: '120px' }} onInput={(e) => { e.target.style.height = 'auto'; e.target.style.height = (e.target.scrollHeight) + 'px'; }} />
+                                                        )}
+                                                    </div>
+                                                    {inputText.trim() ? (
+                                                        <button type="submit" className="w-[42px] h-[42px] mb-0.5 flex-shrink-0 rounded-full flex items-center justify-center bg-[var(--primary)] text-white btn-press shadow-md"><i className="ph-bold ph-arrow-up text-xl"></i></button>
+                                                    ) : (
+                                                        <button type="button" onPointerDown={startRecording} onPointerUp={stopRecording} onPointerLeave={stopRecording} onTouchStart={startRecording} onTouchEnd={stopRecording} className={`w-[42px] h-[42px] mb-0.5 flex-shrink-0 rounded-full flex items-center justify-center btn-press text-white transition-all shadow-md ${isRecording ? 'bg-[var(--danger)] scale-110 shadow-red-500/30' : 'bg-[var(--surface)] border border-[var(--border)]'}`}><i className={`ph-bold ph-microphone text-xl ${isRecording ? 'animate-pulse' : ''}`}></i></button>
+                                                    )}
+                                                </form>
+                                            </div>
+                                        )}
+                                    </React.Fragment>
                                 )}
                             </div>
-                        </div>
+                        </React.Fragment>
                     )}
                 </div>
             );
