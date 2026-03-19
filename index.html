@@ -57,9 +57,6 @@
     <div id="root"></div>
 
     <script type="text/babel">
-        // ==========================================
-        // [DICTIONARY] 100 Kata untuk Passphrase (Mnemonic)
-        // ==========================================
         const DICT = [
             "air", "api", "angin", "bumi", "batu", "bulan", "bintang", "cahaya", "cinta", "damai", 
             "daun", "dunia", "emas", "embun", "fajar", "guntur", "gunung", "hutan", "hujan", "indah", 
@@ -73,9 +70,6 @@
             "ruang", "samudra", "sayap", "senja", "singa", "suara", "tajam", "tombak", "udara", "ular"
         ];
 
-        // ==========================================
-        // [UTILS] CRYPTO ENGINE & KEY WRAPPING
-        // ==========================================
         const withTimeout = (promise, ms, errorMsg) => {
             return Promise.race([
                 promise,
@@ -83,15 +77,11 @@
             ]);
         };
 
-        const CryptoUtils = {
-            async generateKeypair() { 
-                return await window.crypto.subtle.generateKey({ name: "ECDH", namedCurve: "P-256" }, true, ["deriveKey", "deriveBits"]); 
-            },
+            const CryptoUtils = {
+            async generateKeypair() { return await window.crypto.subtle.generateKey({ name: "ECDH", namedCurve: "P-256" }, true, ["deriveKey", "deriveBits"]); },
             async exportKeyJWK(key) { return await window.crypto.subtle.exportKey("jwk", key); },
             async importPublicKey(jwk) { return await window.crypto.subtle.importKey("jwk", jwk, { name: "ECDH", namedCurve: "P-256" }, true, []); },
             async importPrivateKey(jwk) { return await window.crypto.subtle.importKey("jwk", jwk, { name: "ECDH", namedCurve: "P-256" }, true, ["deriveKey", "deriveBits"]); },
-            
-            // PBKDF2 derivation for Key Wrapping
             async deriveWrapKey(passphrase, salt) {
                 const enc = new TextEncoder();
                 const keyMaterial = await crypto.subtle.importKey("raw", enc.encode(passphrase), { name: "PBKDF2" }, false, ["deriveKey"]);
@@ -100,19 +90,37 @@
                     keyMaterial, { name: "AES-GCM", length: 256 }, false, ["encrypt", "decrypt"]
                 );
             },
+            async deriveSharedSecret(privateKey, publicKeyJWK) {
+                const publicKey = await this.importPublicKey(publicKeyJWK);
+                return await window.crypto.subtle.deriveKey({ name: "ECDH", public: publicKey }, privateKey, { name: "AES-GCM", length: 256 }, false, ["encrypt", "decrypt"]);
+            },
             async encryptText(text, sharedKey) {
                 const iv = window.crypto.getRandomValues(new Uint8Array(12));
                 const encoded = new TextEncoder().encode(text);
                 const ciphertext = await window.crypto.subtle.encrypt({ name: "AES-GCM", iv: iv }, sharedKey, encoded);
-                return { iv: Array.from(iv), data: Array.from(new Uint8Array(ciphertext)) };
+                return { type: 'text', iv: Array.from(iv), data: Array.from(new Uint8Array(ciphertext)) };
             },
-            async decryptText(encryptedPayload, sharedKey) {
+            async encryptBinary(arrayBuffer, sharedKey) {
+                const iv = window.crypto.getRandomValues(new Uint8Array(12));
+                const ciphertext = await window.crypto.subtle.encrypt({ name: "AES-GCM", iv: iv }, sharedKey, arrayBuffer);
+                const base64String = btoa(String.fromCharCode(...new Uint8Array(ciphertext)));
+                return { type: 'audio', iv: Array.from(iv), data: base64String };
+            },
+            async decryptPayload(payload, sharedKey) {
                 try {
-                    const iv = new Uint8Array(encryptedPayload.iv);
-                    const data = new Uint8Array(encryptedPayload.data);
-                    const decrypted = await window.crypto.subtle.decrypt({ name: "AES-GCM", iv: iv }, sharedKey, data);
-                    return new TextDecoder().decode(decrypted);
-                } catch (e) { return "🔒 [Decryption Failed]"; }
+                    const iv = new Uint8Array(payload.iv);
+                    if (payload.type === 'audio') {
+                        const binaryStr = atob(payload.data);
+                        const encryptedBytes = new Uint8Array(binaryStr.length);
+                        for (let i = 0; i < binaryStr.length; i++) encryptedBytes[i] = binaryStr.charCodeAt(i);
+                        const decrypted = await window.crypto.subtle.decrypt({ name: "AES-GCM", iv: iv }, sharedKey, encryptedBytes);
+                        return { type: 'audio', data: new Blob([decrypted], { type: 'audio/webm' }) };
+                    } else {
+                        const data = new Uint8Array(payload.data || payload);
+                        const decrypted = await window.crypto.subtle.decrypt({ name: "AES-GCM", iv: iv }, sharedKey, data);
+                        return { type: 'text', data: new TextDecoder().decode(decrypted) };
+                    }
+                } catch (e) { return { type: 'error', data: "🔒 [Decryption Failed]" }; }
             }
         };
 
@@ -122,8 +130,8 @@
                     const req = indexedDB.open("GhostProtocolDB_V3", 1);
                     req.onupgradeneeded = e => { e.target.result.createObjectStore("identity", { keyPath: "id" }); };
                     req.onsuccess = e => resolve(e.target.result);
-                    req.onerror = e => reject(new Error("LocalDB Error: " + e.target.error));
-                }), 4000, "Akses penyimpanan memori diblokir. Matikan mode Private/Incognito browser.");
+                    req.onerror = e => reject(new Error("LocalDB Error: Akses memori diblokir browser."));
+                }), 4000, "Akses memori lokal gagal. Matikan mode Incognito.");
             },
             async saveIdentity(code, privateKeyJWK, publicKeyJWK, displayName) {
                 const db = await this.init();
@@ -154,9 +162,6 @@
             }
         };
 
-        // ==========================================
-        // [CONFIG] HYBRID FIREBASE
-        // ==========================================
         const isCanvasEnv = typeof __firebase_config !== 'undefined' && __firebase_config;
         const APP_ID = typeof __app_id !== 'undefined' ? __app_id : 'ghost-chat-e2ee-v3';
         
@@ -172,9 +177,6 @@
             };
         };
 
-        // ==========================================
-        // [MAIN] REACT APPLICATION
-        // ==========================================
         const App = () => {
             const [fbReady, setFbReady] = React.useState(false);
             const [fbModules, setFbModules] = React.useState(null);
@@ -194,15 +196,16 @@
             const [recoveryKeyInput, setRecoveryKeyInput] = React.useState("");
             const [generatedRecoveryKey, setGeneratedRecoveryKey] = React.useState("");
             const [inputText, setInputText] = React.useState('');
+            const [isRecording, setIsRecording] = React.useState(false);
+            const mediaRecorderRef = React.useRef(null);
+            const audioChunksRef = React.useRef([]);
             
             const [activeModal, setActiveModal] = React.useState(null);
             const [addCodeInput, setAddCodeInput] = React.useState("");
             const [addStatus, setAddStatus] = React.useState("");
 
             const messagesEndRef = React.useRef(null);
-            const qrRef = React.useRef(null);
 
-            // [1. BOOT SEQUENCE]
             React.useEffect(() => {
                 let unsubscribeAuth = null;
                 const initSystem = async () => {
@@ -258,7 +261,6 @@
 
             React.useEffect(() => { messagesEndRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages, decryptedCache]);
 
-            // [2. REALTIME CHAT ENGINE]
             React.useEffect(() => {
                 if (!fbReady || !identity || !activeChat || authView !== "main") return;
                 const { db, fbDb } = fbModules;
@@ -279,7 +281,12 @@
 
                     for (let msg of msgs) {
                         if (!newDecrypted[msg.id]) {
-                            newDecrypted[msg.id] = await CryptoUtils.decryptText(msg.payload, sharedSecret);
+                            const clearData = await CryptoUtils.decryptPayload(msg.payload, sharedSecret);
+                            if (clearData.type === 'audio') {
+                                newDecrypted[msg.id] = { type: 'audio', url: URL.createObjectURL(clearData.data) };
+                            } else {
+                                newDecrypted[msg.id] = { type: 'text', text: clearData.data };
+                            }
                             changed = true;
                         }
                     }
@@ -289,7 +296,6 @@
                 return () => unsubChat();
             }, [fbReady, identity, activeChat, authView]);
 
-            // [3. REGISTRATION (Mnemonic Wrapped)]
             const handleRegister = async (e) => {
                 e.preventDefault();
                 if (!setupName.trim() || !fbModules || !user) return;
@@ -298,24 +304,19 @@
                 try {
                     const code = Array.from(window.crypto.getRandomValues(new Uint8Array(4))).map(b => b.toString(16).padStart(2, '0')).join('').toUpperCase();
                     
-                    // Asymmetric ECDH Keys
                     const keypair = await CryptoUtils.generateKeypair();
                     const pubJWK = await CryptoUtils.exportKeyJWK(keypair.publicKey);
                     const privJWK = await CryptoUtils.exportKeyJWK(keypair.privateKey);
                     
-                    // Generate 9 words & Wrap Key
                     const randomWords = Array.from({length: 9}, () => DICT[Math.floor(Math.random() * DICT.length)]);
                     const passphrase = randomWords.join("-");
-                    const wrapKey = await CryptoUtils.deriveWrapKey(passphrase, code); // salt = code
+                    const wrapKey = await CryptoUtils.deriveWrapKey(passphrase, code);
                     
-                    // Encrypt Private Key payload
                     const encryptedPrivKeyData = await CryptoUtils.encryptText(JSON.stringify(privJWK), wrapKey);
 
-                    // Final Recovery String
                     const finalKey = `${code}.${passphrase}`;
                     setGeneratedRecoveryKey(finalKey);
 
-                    // Save Cloud DB (Dilengkapi Circuit Breaker 10 Detik)
                     const { db, fbDb } = fbModules;
                     const userDocRef = isCanvasEnv 
                         ? fbDb.doc(db, 'artifacts', APP_ID, 'public', 'data', 'users', code)
@@ -324,14 +325,11 @@
                     await withTimeout(
                         fbDb.setDoc(userDocRef, {
                             code, displayName: setupName.trim(), publicKeyJWK: pubJWK,
-                            encryptedPrivKey: encryptedPrivKeyData,
-                            createdAt: Date.now()
+                            encryptedPrivKey: encryptedPrivKeyData, createdAt: Date.now()
                         }),
-                        10000,
-                        "Koneksi Firestore menggantung. Pastikan Anda sudah mengklik 'Create Database' di menu Firestore Firebase Console Anda."
+                        10000, "Koneksi ke server Database gagal. Pastikan rules Firestore sudah request.auth != null."
                     );
 
-                    // Save Local DB
                     await LocalDB.saveIdentity(code, privJWK, pubJWK, setupName.trim());
                     
                     setIdentity({ code, privateKey: keypair.privateKey, publicKeyJWK: pubJWK, displayName: setupName.trim() });
@@ -343,7 +341,6 @@
                 }
             };
 
-            // [4. LOGIN (Unwrap Logic)]
             const handleRestore = async (e) => {
                 e.preventDefault();
                 if (!recoveryKeyInput.trim() || !fbModules || !user) return;
@@ -386,12 +383,11 @@
             };
 
             const handleLogout = async () => {
-                if(!confirm("PERINGATAN: Kunci private lokal akan dimusnahkan. Anda WAJIB memiliki Recovery Key untuk masuk kembali. Lanjutkan?")) return;
+                if(!confirm("PERINGATAN: Kunci private lokal akan dimusnahkan. Lanjutkan?")) return;
                 await LocalDB.wipeData();
                 setIdentity(null); setActiveChat(null); setAuthView("choice"); setActiveModal(null); setRecoveryKeyInput("");
             };
 
-            // [5. ADD FRIEND & MSG]
             const processAddFriend = async (e) => {
                 e.preventDefault();
                 setAddStatus("Mencari Target...");
@@ -412,32 +408,60 @@
                         setAddStatus("HANDSHAKE SUCCESS");
                         setTimeout(() => { setActiveModal(null); setAddCodeInput(""); setAddStatus(""); }, 500);
                     } else { setAddStatus("ERR: Public ID Invalid."); }
-                } catch (err) { setAddStatus("ERR: Jaringan Ditolak."); }
+                } catch (err) { setAddStatus("ERR: Akses Ditolak."); }
             };
 
-            const handleSend = async (e) => {
+                const sendEncryptedPayload = async (payloadData) => {
+                const { db, fbDb } = fbModules;
+                const chatId = [identity.code, activeChat.code].sort().join('_');
+                const chatPath = isCanvasEnv 
+                    ? fbDb.collection(db, 'artifacts', APP_ID, 'public', 'data', `chats_${chatId}`)
+                    : fbDb.collection(db, `chats_${chatId}`);
+                await fbDb.addDoc(chatPath, { sender: identity.code, timestamp: Date.now(), payload: payloadData, status: 'sent' });
+            };
+
+            const handleSendText = async (e) => {
                 e.preventDefault();
                 if (!inputText.trim() || !activeChat || !fbModules) return;
-                const text = inputText.trim();
-                setInputText("");
-
+                const text = inputText.trim(); setInputText("");
                 try {
                     const sharedSecret = await CryptoUtils.deriveSharedSecret(identity.privateKey, activeChat.publicKeyJWK);
                     const encryptedPayload = await CryptoUtils.encryptText(text, sharedSecret);
-
-                    const { db, fbDb } = fbModules;
-                    const chatId = [identity.code, activeChat.code].sort().join('_');
-                    const chatPath = isCanvasEnv 
-                        ? fbDb.collection(db, 'artifacts', APP_ID, 'public', 'data', `chats_${chatId}`)
-                        : fbDb.collection(db, `chats_${chatId}`);
-                    
-                    await fbDb.addDoc(chatPath, { sender: identity.code, timestamp: Date.now(), payload: encryptedPayload, status: 'sent' });
-                } catch (error) { console.error(error); alert("Gagal enkripsi pesan."); }
+                    await sendEncryptedPayload(encryptedPayload);
+                } catch (error) { alert("Gagal enkripsi pesan."); }
             };
 
-            // ==========================================
-            // [VIEW RENDERERS]
-            // ==========================================
+            const startRecording = async () => {
+                try {
+                    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                    const mediaRecorder = new MediaRecorder(stream, { mimeType: 'audio/webm;codecs=opus' });
+                    mediaRecorderRef.current = mediaRecorder;
+                    audioChunksRef.current = [];
+
+                    mediaRecorder.ondataavailable = (e) => { if (e.data.size > 0) audioChunksRef.current.push(e.data); };
+                    mediaRecorder.onstop = async () => {
+                        stream.getTracks().forEach(t => t.stop());
+                        const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+                        if (audioBlob.size > 800000) return alert("Ukuran audio melebihi batas aman E2EE (Maks 15 Detik)."); 
+                        try {
+                            const arrayBuffer = await audioBlob.arrayBuffer();
+                            const sharedSecret = await CryptoUtils.deriveSharedSecret(identity.privateKey, activeChat.publicKeyJWK);
+                            const encryptedAudio = await CryptoUtils.encryptBinary(arrayBuffer, sharedSecret);
+                            await sendEncryptedPayload(encryptedAudio);
+                        } catch (error) { alert("Gagal enkripsi Voice Note."); }
+                    };
+
+                    mediaRecorder.start(); setIsRecording(true);
+                    setTimeout(() => { if(mediaRecorderRef.current?.state === "recording") stopRecording(); }, 15000);
+                } catch (err) { alert("Izin mikrofon ditolak atau browser tidak mendukung perekaman."); }
+            };
+
+            const stopRecording = () => {
+                if (mediaRecorderRef.current?.state === "recording") {
+                    mediaRecorderRef.current.stop(); setIsRecording(false);
+                }
+            };
+
             if (sysError) return (
                 <div className="h-screen flex items-center justify-center p-6 bg-black text-white">
                     <div className="text-center w-full max-w-sm">
@@ -546,7 +570,6 @@
 
             return (
                 <div className="flex h-screen w-full overflow-hidden relative">
-                    {/* MODAL */}
                     {activeModal && (
                         <div className="absolute inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
                             <div className="bg-[var(--surface)] w-full max-w-sm rounded-[32px] p-6 flex flex-col items-center text-center relative border border-[var(--border)] shadow-2xl">
@@ -596,7 +619,6 @@
                         </div>
                     )}
 
-                    {/* SIDEBAR */}
                     <div className={`w-full md:w-[320px] lg:w-[380px] flex-shrink-0 flex flex-col border-r border-[var(--border)] transition-transform z-10 
                         ${activeChat ? '-translate-x-full md:translate-x-0 absolute md:relative h-full' : 'translate-x-0 relative h-full'}`}>
                         
@@ -637,7 +659,6 @@
                         </div>
                     </div>
 
-                    {/* CHAT AREA */}
                     <div className={`flex-1 flex flex-col slide-panel absolute md:relative w-full h-full z-20 bg-[var(--bg-dark)]
                         ${activeChat ? 'translate-x-0' : 'translate-x-full md:translate-x-0'}`}>
                         
@@ -661,14 +682,21 @@
                                         const isMe = msg.sender === identity.code;
                                         const nextMsg = arr[index + 1];
                                         const isLast = !nextMsg || nextMsg.sender !== msg.sender;
-                                        const text = decryptedCache[msg.id] || "...";
+                                        const content = decryptedCache[msg.id];
 
                                         return (
                                             <div key={msg.id} className={`flex w-full ${isMe ? 'justify-end' : 'justify-start'} ${isLast ? 'mb-3' : ''}`}>
                                                 <div className={`max-w-[78%] px-[16px] py-[10px] text-[16px] leading-[1.4] break-words
                                                         ${isMe ? 'bg-[var(--primary)] text-white rounded-[20px] rounded-br-[4px]' 
                                                                : 'bg-[var(--surface)] text-white rounded-[20px] rounded-bl-[4px]'}`}>
-                                                    {text}
+                                                    
+                                                    {!content ? "Decrypting..." : 
+                                                     content.type === 'audio' ? (
+                                                         <audio controls src={content.url} className="h-10 w-48 rounded-lg outline-none"></audio>
+                                                     ) : (
+                                                         content.text || content
+                                                     )}
+
                                                 </div>
                                             </div>
                                         );
@@ -677,20 +705,32 @@
                                 </div>
 
                                 <div className="glass-panel p-2 pb-8 md:pb-4 z-30">
-                                    <form onSubmit={handleSend} className="flex relative items-center gap-2">
+                                    <form onSubmit={handleSendText} className="flex relative items-center gap-2">
                                         <button type="button" className="p-2 text-[var(--text-muted)] btn-press"><i className="ph-bold ph-plus text-2xl"></i></button>
                                         <div className="flex-1 relative">
-                                            <input 
-                                                type="text" value={inputText} onChange={(e) => setInputText(e.target.value)}
-                                                placeholder="Pesan Terenkripsi" 
-                                                className="w-full bg-[var(--surface)] border border-[var(--border)] rounded-full py-[8px] pl-4 pr-10 text-[16px] outline-none text-white focus:border-[var(--text-muted)] transition-colors"
-                                            />
-                                            {inputText.trim() && (
-                                                <button type="submit" className="absolute right-1 bottom-1 w-[30px] h-[30px] rounded-full flex items-center justify-center bg-[var(--primary)] text-white btn-press">
-                                                    <i className="ph-bold ph-arrow-up text-sm"></i>
-                                                </button>
+                                            {isRecording ? (
+                                                <div className="w-full bg-red-500/20 text-[var(--danger)] border border-red-500/50 rounded-full py-[8px] pl-4 text-[14px] font-bold animate-pulse text-center">
+                                                    Merekam... (Tahan & Bicara)
+                                                </div>
+                                            ) : (
+                                                <input 
+                                                    type="text" value={inputText} onChange={(e) => setInputText(e.target.value)}
+                                                    placeholder="Pesan Terenkripsi" 
+                                                    className="w-full bg-[var(--surface)] border border-[var(--border)] rounded-full py-[8px] pl-4 pr-10 text-[16px] outline-none text-white focus:border-[var(--text-muted)] transition-colors"
+                                                />
                                             )}
                                         </div>
+                                        {inputText.trim() ? (
+                                            <button type="submit" className="w-[38px] h-[38px] flex-shrink-0 rounded-full flex items-center justify-center bg-[var(--primary)] text-white btn-press">
+                                                <i className="ph-bold ph-paper-plane-right text-lg"></i>
+                                            </button>
+                                        ) : (
+                                            <button type="button" 
+                                                onPointerDown={startRecording} onPointerUp={stopRecording} onPointerLeave={stopRecording}
+                                                className={`w-[38px] h-[38px] flex-shrink-0 rounded-full flex items-center justify-center btn-press text-white transition-all ${isRecording ? 'bg-[var(--danger)] scale-110' : 'bg-[var(--surface)] border border-[var(--border)]'}`}>
+                                                <i className="ph-bold ph-microphone text-lg"></i>
+                                            </button>
+                                        )}
                                     </form>
                                 </div>
                             </React.Fragment>
