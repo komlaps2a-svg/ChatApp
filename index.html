@@ -1,79 +1,186 @@
 <!DOCTYPE html>
-<html lang="id">
+<html lang="id" data-theme="dark">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <meta name="theme-color" content="#000000">
+    <meta name="theme-color" content="#000000" id="meta-theme-color">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <title>Ghost Protocol V7.1</title>
+    <title>Ghost iOS 18 Immersive</title>
     
     <script src="https://cdn.tailwindcss.com"></script>
     <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
     <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
 
+    <script>
+        const setVh = () => { document.documentElement.style.setProperty('--vh', `${window.innerHeight * 0.01}px`); };
+        window.addEventListener('resize', setVh); window.addEventListener('orientationchange', setVh); setVh();
+    </script>
+
     <style>
-        :root { --bg-dark: #000000; --surface: #1C1C1E; --primary: #0A84FF; --text-main: #FFFFFF; --text-muted: rgba(235, 235, 245, 0.6); --border: rgba(84, 84, 88, 0.65); --danger: #FF453A; --success: #34C759; }
-        body { font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", Arial, sans-serif; background-color: var(--bg-dark); color: var(--text-main); overscroll-behavior-y: none; -webkit-font-smoothing: antialiased; user-select: none; }
+        /* [THEME ENGINE: Variabel Dinamis, Dilarang Keras Putih Polos (#FFF)] */
+        :root {
+            --ios-blue: #0A84FF; --ios-red: #FF453A; --ios-green: #30D158;
+            --bg-color: #000000;
+            --surface-color: #1C1C1E;
+            --surface-hover: #2C2C2E;
+            --text-primary: #FFFFFF;
+            --text-secondary: rgba(235, 235, 245, 0.6);
+            --glass-bg: rgba(28, 28, 30, 0.65);
+            --border-color: rgba(84, 84, 88, 0.65);
+            --bubble-received: #262628;
+            --dock-bg: rgba(28, 28, 30, 0.85);
+            --dock-inactive: #8E8E93;
+        }
+
+        [data-theme="light"] {
+            --ios-blue: #007AFF; --ios-red: #FF3B30; --ios-green: #34C759;
+            --bg-color: #F2F2F7; /* Apple Platinum (Tidak Putih Polos) */
+            --surface-color: #E5E5EA; /* Surface Gray */
+            --surface-hover: #D1D1D6;
+            --text-primary: #000000;
+            --text-secondary: rgba(60, 60, 67, 0.6);
+            --glass-bg: rgba(242, 242, 247, 0.75);
+            --border-color: rgba(0, 0, 0, 0.1);
+            --bubble-received: #E5E5EA;
+            --dock-bg: rgba(229, 229, 234, 0.85);
+            --dock-inactive: #8E8E93;
+        }
+
+        html, body { 
+            position: fixed; top: 0; left: 0; right: 0; bottom: 0; 
+            width: 100%; height: 100vh; height: calc(var(--vh, 1vh) * 100);
+            overflow: hidden; margin: 0; padding: 0;
+            background-color: var(--bg-color); color: var(--text-primary); 
+            font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", sans-serif; 
+            -webkit-font-smoothing: antialiased; user-select: none; -webkit-user-select: none;
+            touch-action: none; overscroll-behavior: none; transition: background-color 0.4s ease;
+        }
+        
+        #root { width: 100%; height: calc(var(--vh, 1vh) * 100); display: flex; flex-direction: column; position: relative; overflow: hidden; }
+
         .hide-scrollbar::-webkit-scrollbar { display: none; } .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
-        .glass-panel { background-color: rgba(28, 28, 30, 0.85); backdrop-filter: blur(40px) saturate(200%); -webkit-backdrop-filter: blur(40px) saturate(200%); }
-        .btn-press { transition: transform 0.1s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.1s; } .btn-press:active { transform: scale(0.92); opacity: 0.8; }
-        .btn-disabled { opacity: 0.5; cursor: not-allowed; }
-        input, textarea { user-select: auto; } .selectable-text { user-select: all; -webkit-user-select: all; }
+        input, textarea { user-select: auto; -webkit-user-select: auto; background-color: var(--surface-color); color: var(--text-primary); border-color: var(--border-color); }
+        .selectable-text { user-select: all; -webkit-user-select: all; }
+        .scrollable-area { overflow-y: auto; touch-action: pan-y; overscroll-behavior-y: contain; -webkit-overflow-scrolling: touch; }
+
+        /* Kaca Dinamis Tema */
+        .ios-glass { background-color: var(--glass-bg); backdrop-filter: blur(40px) saturate(200%); -webkit-backdrop-filter: blur(40px) saturate(200%); border-bottom: 0.5px solid var(--border-color); }
+        .ios-modal { background-color: var(--dock-bg); backdrop-filter: blur(50px) saturate(200%); box-shadow: 0 20px 40px rgba(0,0,0,0.3); border: 1px solid var(--border-color); }
         
+        .btn-press { transition: transform 0.1s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.1s; } .btn-press:active { transform: scale(0.92); opacity: 0.7; }
+        
+        .dock-wrapper { position: absolute; bottom: max(20px, env(safe-area-inset-bottom, 20px)); left: 0; width: 100%; display: flex; justify-content: center; z-index: 1000; pointer-events: none; }
+        .floating-dock { pointer-events: auto; height: 72px; width: 94%; max-width: 380px; background: var(--dock-bg); border-radius: 36px; display: flex; justify-content: space-between; align-items: center; border: 0.5px solid var(--border-color); box-shadow: 0 20px 40px rgba(0,0,0,0.3); backdrop-filter: blur(30px); padding: 0 8px; transition: transform 0.5s cubic-bezier(0.32, 0.72, 0, 1), opacity 0.5s cubic-bezier(0.32, 0.72, 0, 1); }
+        .dock-hidden { transform: translateY(150px); opacity: 0; pointer-events: none; }
+        
+        .dock-item-active { background-color: var(--ios-blue); color: #FFF; border-radius: 20px; padding: 4px 14px; transition: all 0.3s ease; }
+        .dock-item-inactive { padding: 4px 14px; color: var(--dock-inactive); transition: all 0.3s ease; }
+
+        /* [GLASS SWITCHER ANIMATION] */
+        .glass-switcher-enter { animation: fadeScale 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+        @keyframes fadeScale { 0% { opacity: 0; transform: scale(0.97) translateY(10px); } 100% { opacity: 1; transform: scale(1) translateY(0); } }
+
+        .aesthetic-transition { transition: transform 0.5s cubic-bezier(0.32, 0.72, 0, 1), opacity 0.5s cubic-bezier(0.32, 0.72, 0, 1); }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
         @keyframes slideDown { 0% { transform: translate(-50%, -100%); opacity: 0; } 100% { transform: translate(-50%, 0); opacity: 1; } }
-        @keyframes fade { 0% { opacity: 0; } 100% { opacity: 1; } }
-        .toast-enter { animation: slideDown 0.4s cubic-bezier(0.2, 0.8, 0.2, 1) forwards; } .modal-enter { animation: fade 0.3s ease-out forwards; }
+        @keyframes applePop { 0% { transform: scale(0.9) translateY(20px); opacity: 0; } 100% { transform: scale(1) translateY(0); opacity: 1; } }
         
-        .msg-selected { background-color: rgba(10, 132, 255, 0.2) !important; border: 1px solid var(--primary) !important; }
+        .toast-enter { animation: slideDown 0.4s cubic-bezier(0.32, 0.72, 0, 1) forwards; }
+        .modal-enter { animation: fadeIn 0.3s ease-out forwards; }
+        .dialog-enter { animation: applePop 0.4s cubic-bezier(0.32, 0.72, 0, 1) forwards; }
+        .bubble-enter { animation: applePop 0.5s cubic-bezier(0.32, 0.72, 0, 1) forwards; transform-origin: bottom right; }
+        .bubble-enter-left { animation: applePop 0.5s cubic-bezier(0.32, 0.72, 0, 1) forwards; transform-origin: bottom left; }
+
+        .tail-right::before { content: ''; position: absolute; bottom: 0; right: -8px; width: 20px; height: 20px; background-color: var(--ios-blue); border-bottom-left-radius: 16px; z-index: -1; }
+        .tail-right::after { content: ''; position: absolute; bottom: 0; right: -10px; width: 10px; height: 20px; background-color: var(--bg-color); border-bottom-left-radius: 10px; z-index: -1; transition: background-color 0.4s ease; }
+        .tail-left::before { content: ''; position: absolute; bottom: 0; left: -8px; width: 20px; height: 20px; background-color: var(--bubble-received); border-bottom-right-radius: 16px; z-index: -1; }
+        .tail-left::after { content: ''; position: absolute; bottom: 0; left: -10px; width: 10px; height: 20px; background-color: var(--bg-color); border-bottom-right-radius: 10px; z-index: -1; transition: background-color 0.4s ease; }
+
+        .story-ring { background: linear-gradient(45deg, #f09433 0%, #e6683c 25%, #dc2743 50%, #cc2366 75%, #bc1888 100%); padding: 3px; border-radius: 50%; display: inline-block; }
+        .story-avatar-inner { background-color: var(--surface-color); border: 2px solid var(--bg-color); border-radius: 50%; overflow: hidden; }
+
+        .call-container { position: absolute; inset: 0; background-color: #000; z-index: 9999; display: flex; flex-direction: column; animation: applePop 0.4s cubic-bezier(0.32, 0.72, 0, 1) forwards; }
+        .call-video { position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; background-color: #050505; z-index: 1; border-radius: 32px; }
+        .local-video { position: absolute; top: 60px; right: 20px; width: 110px; height: 160px; border-radius: 16px; border: 1px solid rgba(255,255,255,0.2); object-fit: cover; background-color: #222; z-index: 50; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
         
-        /* FILTERS */
-        .filter-normal { filter: none; }
-        .filter-bw { filter: grayscale(100%) contrast(1.2); }
-        .filter-iphone { filter: contrast(1.1) saturate(1.2) sepia(0.15) brightness(1.05); }
-        .filter-vintage { filter: sepia(0.6) contrast(1.2) hue-rotate(-15deg) saturate(0.8); }
-        .filter-cyber { filter: hue-rotate(90deg) saturate(2) contrast(1.2); }
+        .pulse-record { animation: pulseBg 1.5s infinite; }
+        @keyframes pulseBg { 0% { box-shadow: 0 0 0 0 rgba(255, 69, 58, 0.7); } 70% { box-shadow: 0 0 0 15px rgba(255, 69, 58, 0); } 100% { box-shadow: 0 0 0 0 rgba(255, 69, 58, 0); } }
 
-        .story-ring { background: linear-gradient(45deg, #f09433 0%, #e6683c 25%, #dc2743 50%, #cc2366 75%, #bc1888 100%); padding: 2px; border-radius: 50%; display: inline-block; }
-        .story-ring.viewed { background: var(--border); }
-        .story-avatar-inner { background-color: var(--surface); border: 2px solid var(--bg-dark); border-radius: 50%; overflow: hidden; }
-
-        .call-container { position: fixed; inset: 0; background-color: #000; z-index: 9999; display: flex; flex-direction: column; }
-        .call-video { position: absolute; top: 0; left: 0; width: 100vw; height: 100vh; object-fit: cover; background-color: #050505; z-index: 1; }
-        .local-video { position: absolute; bottom: 100px; right: 20px; width: 120px; height: 180px; border-radius: 16px; border: 2px solid rgba(255,255,255,0.3); object-fit: cover; background-color: #111; z-index: 50; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+        /* Utilitas Warna Kustom UI Tailwind */
+        .bg-custom-bg { background-color: var(--bg-color); }
+        .bg-custom-surface { background-color: var(--surface-color); }
+        .text-custom-main { color: var(--text-primary); }
+        .text-custom-muted { color: var(--text-secondary); }
+        .border-custom { border-color: var(--border-color); }
     </style>
 </head>
 <body>
     <div id="root"></div>
     
     <script type="text/babel">
-        const swLogic = `
-            self.addEventListener('push', function(event) {
-                if (event.data) {
-                    const data = event.data.json();
-                    self.registration.showNotification(data.title, { body: data.body, icon: data.icon });
-                }
-            });
-            self.addEventListener('notificationclick', function(event) {
-                event.notification.close();
-                event.waitUntil(clients.matchAll({type: 'window'}).then(clientList => {
-                    for (let i = 0; i < clientList.length; i++) {
-                        let client = clientList[i];
-                        if (client.url === '/' && 'focus' in client) return client.focus();
-                    }
-                    if (clients.openWindow) return clients.openWindow('/');
-                }));
-            });
-        `;
-        const blob = new Blob([swLogic], { type: 'application/javascript' });
-        const swUrl = URL.createObjectURL(blob);
-        if ('serviceWorker' in navigator) navigator.serviceWorker.register(swUrl).catch(()=>{});
+        // [CORE FIX: ABSOLUTE CLIPBOARD FALLBACK]
+        const copyToClipboard = (text) => {
+            if (navigator.clipboard && window.isSecureContext) {
+                navigator.clipboard.writeText(text).catch(() => fallbackCopy(text));
+            } else { fallbackCopy(text); }
+        };
 
-        const DICT = ["air", "api", "angin", "bumi", "batu", "bulan", "bintang", "cahaya", "cinta", "damai", "daun", "dunia", "emas", "embun", "fajar"];
-        const withTimeout = (promise, ms, errorMsg) => Promise.race([promise, new Promise((_, reject) => setTimeout(() => reject(new Error(errorMsg)), ms))]);
+        const fallbackCopy = (text) => {
+            const textArea = document.createElement("textarea"); textArea.value = text;
+            textArea.style.top = "0"; textArea.style.left = "0"; textArea.style.position = "fixed";
+            document.body.appendChild(textArea); textArea.focus(); textArea.select();
+            try { document.execCommand('copy'); } catch (err) {}
+            document.body.removeChild(textArea);
+        };
+
+        // [CORE FIX: COMPRESSION ENGINE (Mencegah Infinite Hang E2EE)]
+        const compressImage = async (file) => {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.readAsDataURL(file);
+                reader.onload = (e) => {
+                    const img = new Image();
+                    img.src = e.target.result;
+                    img.onload = () => {
+                        const canvas = document.createElement('canvas');
+                        const MAX_WIDTH = 1080; // Resolusi aman E2EE
+                        const scaleSize = MAX_WIDTH / img.width;
+                        canvas.width = MAX_WIDTH;
+                        canvas.height = img.height * scaleSize;
+                        const ctx = canvas.getContext('2d');
+                        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                        canvas.toBlob(blob => resolve(blob), 'image/jpeg', 0.75); // Kualitas 75%
+                    };
+                    img.onerror = () => reject(new Error("File bukan gambar valid."));
+                };
+                reader.onerror = () => reject(new Error("Gagal membaca file."));
+            });
+        };
+
+        class ErrorBoundary extends React.Component {
+            constructor(props) { super(props); this.state = { hasError: false, error: null }; }
+            static getDerivedStateFromError(error) { return { hasError: true, error }; }
+            render() {
+                if (this.state.hasError) {
+                    return (
+                        <div style={{ padding: '24px', backgroundColor: '#000', color: '#ff453a', height: '100%', width: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', fontFamily: 'monospace', textAlign: 'center' }}>
+                            <i className="ph-fill ph-warning-octagon text-6xl mb-4"></i>
+                            <h2 style={{ fontSize: '24px', fontWeight: 'bold', marginBottom: '10px' }}>SYSTEM RECOVERY</h2>
+                            <p style={{ fontSize: '13px', opacity: 0.9, maxWidth: '90%', wordBreak: 'break-word', backgroundColor: 'rgba(255,69,58,0.15)', padding: '16px', borderRadius: '16px', border: '1px solid rgba(255,69,58,0.4)' }}>
+                                {this.state.error?.toString()}
+                            </p>
+                            <button onClick={() => window.location.reload()} style={{ marginTop: '40px', padding: '14px 32px', backgroundColor: '#ff453a', color: '#fff', border: 'none', borderRadius: '16px', fontWeight: 'bold', fontSize: '17px', cursor: 'pointer' }}>Bypass & Restart</button>
+                        </div>
+                    );
+                }
+                return this.props.children;
+            }
+        }
 
         const CryptoUtils = {
             async generateKeypair() { return await window.crypto.subtle.generateKey({ name: "ECDH", namedCurve: "P-256" }, true, ["deriveKey", "deriveBits"]); },
@@ -91,8 +198,7 @@
             },
             async encryptText(text, sharedKey) {
                 const iv = window.crypto.getRandomValues(new Uint8Array(12));
-                const encoded = new TextEncoder().encode(text);
-                const ciphertext = await window.crypto.subtle.encrypt({ name: "AES-GCM", iv: iv }, sharedKey, encoded);
+                const ciphertext = await window.crypto.subtle.encrypt({ name: "AES-GCM", iv: iv }, sharedKey, new TextEncoder().encode(text));
                 return { type: 'text', iv: Array.from(iv), data: Array.from(new Uint8Array(ciphertext)) };
             },
             async encryptBinary(arrayBuffer, sharedKey, fileType) {
@@ -109,31 +215,26 @@
                         const encryptedBytes = new Uint8Array(binaryStr.length);
                         for (let i = 0; i < binaryStr.length; i++) encryptedBytes[i] = binaryStr.charCodeAt(i);
                         const decrypted = await window.crypto.subtle.decrypt({ name: "AES-GCM", iv: iv }, sharedKey, encryptedBytes);
-                        let mime = 'application/octet-stream';
-                        if(payload.type === 'audio') mime = 'audio/webm'; else if(payload.type === 'image') mime = 'image/jpeg'; else if(payload.type === 'video') mime = 'video/mp4';
+                        let mime = payload.type === 'audio' ? 'audio/webm' : payload.type === 'image' ? 'image/jpeg' : 'video/mp4';
                         return { type: payload.type, data: new Blob([decrypted], { type: mime }) };
                     } else {
-                        const data = new Uint8Array(payload.data || payload);
-                        const decrypted = await window.crypto.subtle.decrypt({ name: "AES-GCM", iv: iv }, sharedKey, data);
+                        const decrypted = await window.crypto.subtle.decrypt({ name: "AES-GCM", iv: iv }, sharedKey, new Uint8Array(payload.data || payload));
                         return { type: 'text', data: new TextDecoder().decode(decrypted) };
                     }
-                } catch (e) { return { type: 'error', data: "🔒 [Decryption Failed]" }; }
+                } catch (e) { return { type: 'error', data: "🔒 Decryption Failed" }; }
             },
             async generateStoryKey() {
                 const rawKey = window.crypto.getRandomValues(new Uint8Array(32));
-                const cryptoKey = await crypto.subtle.importKey("raw", rawKey, "AES-GCM", true, ["encrypt", "decrypt"]);
-                return { rawKey, cryptoKey };
+                return { rawKey, cryptoKey: await crypto.subtle.importKey("raw", rawKey, "AES-GCM", true, ["encrypt", "decrypt"]) };
             },
             async encryptStoryMedia(arrayBuffer, cryptoKey) {
                 const iv = window.crypto.getRandomValues(new Uint8Array(12));
                 const ciphertext = await crypto.subtle.encrypt({ name: "AES-GCM", iv: iv }, cryptoKey, arrayBuffer);
-                return { iv: Array.from(iv), blob: new Blob([ciphertext]) };
+                return { iv: Array.from(iv), blob: new Blob([ciphertext], { type: 'application/octet-stream' }) };
             },
             async decryptStoryMedia(encryptedBlob, ivArray, rawKeyArray) {
                 const cryptoKey = await crypto.subtle.importKey("raw", new Uint8Array(rawKeyArray), "AES-GCM", false, ["decrypt"]);
-                const arrayBuffer = await encryptedBlob.arrayBuffer();
-                const decrypted = await crypto.subtle.decrypt({ name: "AES-GCM", iv: new Uint8Array(ivArray) }, cryptoKey, arrayBuffer);
-                return decrypted;
+                return await crypto.subtle.decrypt({ name: "AES-GCM", iv: new Uint8Array(ivArray) }, cryptoKey, await encryptedBlob.arrayBuffer());
             },
             async wrapKeyForFriend(rawKey, sharedSecret) {
                 const iv = window.crypto.getRandomValues(new Uint8Array(12));
@@ -141,46 +242,39 @@
                 return { iv: Array.from(iv), wrapped: Array.from(new Uint8Array(wrapped)) };
             },
             async unwrapKeyFromFriend(wrappedData, sharedSecret) {
-                const iv = new Uint8Array(wrappedData.iv);
-                const data = new Uint8Array(wrappedData.wrapped);
-                const rawKey = await crypto.subtle.decrypt({ name: "AES-GCM", iv: iv }, sharedSecret, data);
+                const rawKey = await crypto.subtle.decrypt({ name: "AES-GCM", iv: new Uint8Array(wrappedData.iv) }, sharedSecret, new Uint8Array(wrappedData.wrapped));
                 return Array.from(new Uint8Array(rawKey));
             }
         };
 
         const LocalDB = {
             async init() {
-                return withTimeout(new Promise((resolve, reject) => {
-                    const req = indexedDB.open("GhostProtocol_Vault_Persistent", 1);
-                    req.onupgradeneeded = e => { e.target.result.createObjectStore("identity", { keyPath: "id" }); };
-                    req.onsuccess = e => resolve(e.target.result); req.onerror = e => reject(new Error("LocalDB Error"));
-                }), 4000, "Akses memori lokal gagal.");
-            },
-            async saveIdentity(code, privateKeyJWK, publicKeyJWK, displayName) {
-                const db = await this.init();
                 return new Promise((resolve, reject) => {
+                    const req = indexedDB.open("GhostDB_V15", 1);
+                    req.onupgradeneeded = e => { if(!e.target.result.objectStoreNames.contains("identity")) e.target.result.createObjectStore("identity", { keyPath: "id" }); };
+                    req.onsuccess = e => resolve(e.target.result); req.onerror = e => reject(e);
+                });
+            },
+            async saveIdentity(data) {
+                const db = await this.init();
+                return new Promise(resolve => {
                     const tx = db.transaction("identity", "readwrite");
-                    tx.objectStore("identity").put({ id: "active", code, privateKeyJWK, publicKeyJWK, displayName });
-                    tx.oncomplete = () => resolve(); tx.onerror = () => reject(tx.error);
+                    tx.objectStore("identity").put({ id: "active", ...data });
+                    tx.oncomplete = () => resolve();
                 });
             },
             async getIdentity() {
                 const db = await this.init();
-                return new Promise((resolve) => {
+                return new Promise(resolve => {
                     if (!db.objectStoreNames.contains("identity")) return resolve(null);
                     const req = db.transaction("identity", "readonly").objectStore("identity").get("active");
                     req.onsuccess = () => resolve(req.result); req.onerror = () => resolve(null);
                 });
             },
-            async wipeData() {
-                const db = await this.init();
-                return new Promise((resolve) => {
-                    if (!db.objectStoreNames.contains("identity")) return resolve();
-                    const tx = db.transaction("identity", "readwrite"); tx.objectStore("identity").clear(); tx.oncomplete = () => resolve();
-                });
-            }
+            async wipe() { const db = await this.init(); db.transaction("identity", "readwrite").objectStore("identity").clear(); }
         };
 
+        const DICT = ["alpha", "bravo", "delta", "echo", "fox", "golf", "hotel", "india", "kilo", "lima", "mike", "november", "oscar", "papa", "romeo"];
         const firebaseConfig = { apiKey: "AIzaSyCftdtKP4vYY9DQSWwWkFoKXv-ceWh12WQ", authDomain: "ghost-chat-e2ee.firebaseapp.com", projectId: "ghost-chat-e2ee", storageBucket: "ghost-chat-e2ee.firebasestorage.app", messagingSenderId: "951286040813", appId: "1:951286040813:web:5f848f381cdcedaa6de4e4" };
         const STUN_SERVERS = { iceServers: [{ urls: ['stun:stun1.l.google.com:19302', 'stun:stun2.l.google.com:19302'] }] };
 
@@ -189,98 +283,98 @@
             const [fbModules, setFbModules] = React.useState(null);
             const [identity, setIdentity] = React.useState(null);
             const [authView, setAuthView] = React.useState("choice"); 
-            const [sysError, setSysError] = React.useState(null);
-            const [loadingState, setLoadingState] = React.useState("");
             
-            // Core Chat
-            const [friends, setFriends] = React.useState([]);
+            const [activeTab, setActiveTab] = React.useState('chats'); 
             const [activeChat, setActiveChat] = React.useState(null);
+            const [activeModal, setActiveModal] = React.useState(null);
+            const [toast, setToast] = React.useState(null);
+            const [dialog, setDialog] = React.useState({ show: false });
+
+            // System Theme
+            const [appTheme, setAppTheme] = React.useState('dark');
+
+            const [uiHidden, setUiHidden] = React.useState(false);
+            const lastScrollY = React.useRef(0);
+
+            const [friends, setFriends] = React.useState([]);
             const [messages, setMessages] = React.useState([]);
             const [decryptedCache, setDecryptedCache] = React.useState({});
             const [inputText, setInputText] = React.useState('');
-            const [isRecording, setIsRecording] = React.useState(false);
-
-            // Story State
-            const [stories, setStories] = React.useState([]);
-            const [storyMode, setStoryMode] = React.useState(null); 
-            const [viewingStoryIdx, setViewingStoryIdx] = React.useState(0);
-            const [activeStoryGroup, setActiveStoryGroup] = React.useState([]); 
-            const [storyProgress, setStoryProgress] = React.useState(0);
-            const storyIntervalRef = React.useRef(null);
-
-            // Creator State
-            const [creatorType, setCreatorType] = React.useState('camera'); 
-            const [creatorFilter, setCreatorFilter] = React.useState('filter-normal');
-            const [creatorText, setCreatorText] = React.useState('');
-            const [creatorBg, setCreatorBg] = React.useState('bg-gradient-to-tr from-blue-600 to-purple-600');
-            const [isRecordingStory, setIsRecordingStory] = React.useState(false);
-            const [recordedMedia, setRecordedMedia] = React.useState(null); 
             
-            const creatorVideoRef = React.useRef(null);
-            const creatorStreamRef = React.useRef(null);
-            const storyMediaRecorderRef = React.useRef(null);
-            const storyChunksRef = React.useRef([]);
-            
-            // WebRTC & Chat Refs
-            const pcRef = React.useRef(null);
-            const localStreamRef = React.useRef(null);
-            const remoteStreamRef = React.useRef(new MediaStream()); 
-            const pendingCandidatesRef = React.useRef([]); 
-            const localVideoRef = React.useRef(null);
-            const remoteVideoRef = React.useRef(null);
-            const [rtcState, setRtcState] = React.useState(null); 
-            const [callType, setCallType] = React.useState('video');
-
-            const messagesEndRef = React.useRef(null);
-            const mediaRecorderRef = React.useRef(null);
-            const audioChunksRef = React.useRef([]);
-            const fileInputRef = React.useRef(null);
-
             const [setupName, setSetupName] = React.useState("");
             const [recoveryKeyInput, setRecoveryKeyInput] = React.useState("");
             const [generatedRecoveryKey, setGeneratedRecoveryKey] = React.useState("");
             const [addCodeInput, setAddCodeInput] = React.useState("");
-            const [activeModal, setActiveModal] = React.useState(null);
-            const [toast, setToast] = React.useState(null);
-            const [dialog, setDialog] = React.useState({ show: false, title: '', msg: '', onConfirm: null, isDestructive: false });
-            const [chatMenuOpen, setChatMenuOpen] = React.useState(false);
-            const [isSelecting, setIsSelecting] = React.useState(false);
-            const [selectedMsgs, setSelectedMsgs] = React.useState([]);
+
+            const fileInputRef = React.useRef(null);
+            const [isRecording, setIsRecording] = React.useState(false);
+            const mediaRecorderRef = React.useRef(null);
+            const audioChunksRef = React.useRef([]);
+            const messagesEndRef = React.useRef(null);
+
+            // Story Multipart
+            const [stories, setStories] = React.useState([]);
+            const [storyMode, setStoryMode] = React.useState(null); 
+            const [storyImageBlob, setStoryImageBlob] = React.useState(null);
+            const [storyAudioBlob, setStoryAudioBlob] = React.useState(null);
+            const [isRecordingStoryAudio, setIsRecordingStoryAudio] = React.useState(false);
+            const [storyRecSeconds, setStoryRecTime] = React.useState(0);
+            const [viewingStoryIdx, setViewingStoryIdx] = React.useState(0);
+            const [activeStoryGroup, setActiveStoryGroup] = React.useState([]);
+            const [storyProgress, setStoryProgress] = React.useState(0);
+            const [currentStoryContent, setCurrentStoryContent] = React.useState(null);
+
+            // Scanner
+            const [isScanning, setIsScanning] = React.useState(false);
+
+            const storyAudioRecorderRef = React.useRef(null);
+            const storyAudioChunksRef = React.useRef([]);
+            const storyIntervalRef = React.useRef(null);
+            const storyTimerRef = React.useRef(null);
+            const storyAutoStopRef = React.useRef(null);
+            const qrRef = React.useRef(null);
+            const avatarInputRef = React.useRef(null);
+            const storyImgInputRef = React.useRef(null);
+            const storyAudInputRef = React.useRef(null);
+
+            const pcRef = React.useRef(null);
+            const localStreamRef = React.useRef(null);
+            const remoteStreamRef = React.useRef(new MediaStream()); 
+            const [rtcState, setRtcState] = React.useState(null); 
+            const [callType, setCallType] = React.useState('video');
+            const localVideoRef = React.useRef(null);
+            const remoteVideoRef = React.useRef(null);
 
             const showToast = (msg, icon = "ph-info") => { setToast({ msg, icon }); setTimeout(() => setToast(null), 3000); };
-            const triggerDialog = (title, msg, onConfirm, isDestructive = false) => { setDialog({ show: true, title, msg, onConfirm, isDestructive }); setChatMenuOpen(false); };
+            const triggerDialog = (title, msg, onConfirm, isDestructive = false) => { setDialog({ show: true, title, msg, onConfirm, isDestructive }); };
 
-            const pushOSNotification = async (title, body) => {
-                if (!("Notification" in window)) return;
-                if (Notification.permission === "granted") {
-                    try {
-                        const reg = await navigator.serviceWorker.ready;
-                        reg.showNotification(title, { body, icon: "https://cdn-icons-png.flaticon.com/512/3064/3064048.png", vibrate: [200, 100, 200], requireInteraction: true, badge: "https://cdn-icons-png.flaticon.com/512/3064/3064048.png" });
-                    } catch (e) { new Notification(title, { body, icon: "https://cdn-icons-png.flaticon.com/512/3064/3064048.png" }); }
-                }
+            const handleMainScroll = (e) => {
+                const current = e.target.scrollTop;
+                if (current > lastScrollY.current + 15 && current > 80) setUiHidden(true);
+                else if (current < lastScrollY.current - 15 || current <= 40) setUiHidden(false);
+                lastScrollY.current = current;
             };
 
-            const migrateOldDB = async () => {
-                return new Promise((resolve) => {
-                    const req = indexedDB.open("GhostProtocolDB_V6", 1);
-                    req.onsuccess = e => {
-                        const db = e.target.result;
-                        if (!db.objectStoreNames.contains("identity")) return resolve(null);
-                        const tx = db.transaction("identity", "readonly").objectStore("identity").get("active");
-                        tx.onsuccess = async () => {
-                            if (tx.result) await LocalDB.saveIdentity(tx.result.code, tx.result.privateKeyJWK, tx.result.publicKeyJWK, tx.result.displayName);
-                            resolve(tx.result);
-                        };
-                        tx.onerror = () => resolve(null);
-                    };
-                    req.onerror = () => resolve(null);
-                });
+            const toggleTheme = () => {
+                const newTheme = appTheme === 'dark' ? 'light' : 'dark';
+                setAppTheme(newTheme);
+                document.documentElement.setAttribute('data-theme', newTheme);
+                document.getElementById('meta-theme-color').setAttribute('content', newTheme === 'dark' ? '#000000' : '#F2F2F7');
+                localStorage.setItem('ghost_theme', newTheme);
+            };
+
+            const openStoryCreator = () => {
+                setStoryMode('create'); setStoryImageBlob(null); setStoryAudioBlob(null); setStoryRecTime(0);
             };
 
             React.useEffect(() => {
-                const initSystem = async () => {
+                const init = async () => {
                     try {
-                        setLoadingState("Booting Infrastructure...");
+                        const savedTheme = localStorage.getItem('ghost_theme') || 'dark';
+                        setAppTheme(savedTheme);
+                        document.documentElement.setAttribute('data-theme', savedTheme);
+                        document.getElementById('meta-theme-color').setAttribute('content', savedTheme === 'dark' ? '#000000' : '#F2F2F7');
+
                         const importModule = new Function('url', 'return import(url)');
                         const fbApp = await importModule('https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js');
                         const fbAuth = await importModule('https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js');
@@ -292,87 +386,77 @@
                         const db = fbDb.getFirestore(app);
                         const storage = fbStorage.getStorage(app);
 
-                        setFbModules({ auth, db, storage, fbAuth, fbDb, fbStorage, arrayUnion: fbDb.arrayUnion });
-                        await fbAuth.setPersistence(auth, fbAuth.browserLocalPersistence);
+                        setFbModules({ auth, db, storage, fbAuth, fbDb, fbStorage });
                         await fbAuth.signInAnonymously(auth);
 
-                        if ("Notification" in window && Notification.permission === "default") Notification.requestPermission();
-
-                        fbAuth.onAuthStateChanged(auth, async (u) => {
-                            if (u) {
-                                let localData = await LocalDB.getIdentity();
-                                if (!localData) localData = await migrateOldDB();
-
-                                if (localData) {
-                                    try {
-                                        const privKey = await CryptoUtils.importPrivateKey(localData.privateKeyJWK);
-                                        setIdentity({ code: localData.code, privateKey: privKey, publicKeyJWK: localData.publicKeyJWK, displayName: localData.displayName });
-                                        setAuthView("main");
-                                    } catch (e) { await LocalDB.wipeData(); }
-                                }
-                                setFbReady(true); setLoadingState("");
-                            }
-                        });
-                    } catch (err) { setSysError(`BOOT_FAILED: ${err.message}`); }
+                        const localData = await LocalDB.getIdentity();
+                        if (localData) {
+                            const privKey = await CryptoUtils.importPrivateKey(localData.privateKeyJWK);
+                            setIdentity({ ...localData, privateKey: privKey });
+                            setAuthView("main");
+                        }
+                        setFbReady(true);
+                    } catch (e) { console.error(e); }
                 };
-                initSystem();
+                init();
             }, []);
 
-            React.useEffect(() => { if(!isSelecting) messagesEndRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages, decryptedCache, isSelecting]);
+            React.useEffect(() => {
+                if (activeModal === 'profile' && identity && document.getElementById('qr-container')) {
+                    document.getElementById('qr-container').innerHTML = "";
+                    new QRCode(document.getElementById('qr-container'), { text: identity.code, width: 140, height: 140, colorDark : "#000", colorLight : "#fff", correctLevel : QRCode.CorrectLevel.H });
+                }
+            }, [activeModal, identity]);
 
-            // Fetch Contacts & Stories
+            // Scanner UseEffect
+            React.useEffect(() => {
+                let scanner;
+                if (isScanning && document.getElementById('reader')) {
+                    scanner = new Html5Qrcode("reader");
+                    scanner.start({ facingMode: "environment" }, { fps: 10, qrbox: { width: 250, height: 250 } }, (text) => {
+                        setAddCodeInput(text); scanner.stop(); setIsScanning(false); showToast("QR Terbaca!", "ph-check");
+                    }, (err) => {}).catch(e => { showToast("Gagal akses kamera", "ph-warning"); setIsScanning(false); });
+                }
+                return () => { if (scanner && scanner.isScanning) scanner.stop().catch(()=>{}); };
+            }, [isScanning]);
+
             React.useEffect(() => {
                 if (!fbReady || !identity || authView !== "main") return;
                 const { db, fbDb } = fbModules;
-                
                 const unsubContacts = fbDb.onSnapshot(fbDb.collection(db, 'users', identity.code, 'contacts'), (snap) => setFriends(snap.docs.map(d => d.data())));
-
-                const storiesQuery = fbDb.query(fbDb.collection(db, 'stories'), fbDb.where('expiresAt', '>', Date.now()));
-                const unsubStories = fbDb.onSnapshot(storiesQuery, async (snap) => {
-                    let fetchedStories = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-                    fetchedStories = fetchedStories.filter(s => s.sender === identity.code || s.encryptedKeys[identity.code]);
-                    
+                const unsubStories = fbDb.onSnapshot(fbDb.query(fbDb.collection(db, 'stories'), fbDb.where('expiresAt', '>', Date.now())), async (snap) => {
+                    let fetched = snap.docs.map(d => ({ id: d.id, ...d.data() })).filter(s => s.sender === identity.code || s.encryptedKeys[identity.code]);
                     const grouped = {};
-                    fetchedStories.forEach(s => {
-                        if (!grouped[s.sender]) grouped[s.sender] = [];
-                        grouped[s.sender].push(s);
-                    });
-                    
-                    const finalStories = [];
+                    fetched.forEach(s => { if (!grouped[s.sender]) grouped[s.sender] = []; grouped[s.sender].push(s); });
+                    const final = [];
                     for (let sender in grouped) {
                         grouped[sender].sort((a,b) => a.timestamp - b.timestamp);
-                        const friendData = sender === identity.code ? identity : friends.find(f => f.code === sender);
-                        if (friendData) {
-                            finalStories.push({ senderCode: sender, displayName: friendData.displayName, items: grouped[sender] });
-                        }
+                        const friend = sender === identity.code ? identity : friends.find(f => f.code === sender);
+                        if (friend) final.push({ senderCode: sender, displayName: friend.displayName, avatarUrl: friend.avatarUrl, items: grouped[sender] });
                     }
-                    finalStories.sort((a, b) => {
+                    final.sort((a, b) => {
                         if (a.senderCode === identity.code) return -1;
                         if (b.senderCode === identity.code) return 1;
                         return b.items[b.items.length-1].timestamp - a.items[a.items.length-1].timestamp;
                     });
-                    setStories(finalStories);
+                    setStories(final);
                 });
-
                 return () => { unsubContacts(); unsubStories(); };
-            }, [fbReady, identity, authView, friends.length]); 
+            }, [fbReady, identity, authView, friends.length]);
 
-            // Fetch Chat Messages
             React.useEffect(() => {
-                if (!fbReady || !identity || !activeChat || authView !== "main") return;
+                if (!fbReady || !identity || !activeChat || authView !== "main" || activeTab !== 'chats') return;
                 const { db, fbDb } = fbModules;
                 const chatId = [identity.code, activeChat.code].sort().join('_');
                 
                 const unsubChat = fbDb.onSnapshot(fbDb.collection(db, `chats_${chatId}`), async (snapshot) => {
-                    let msgs = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
-                    msgs = msgs.filter(m => !(m.deletedFor || []).includes(identity.code));
+                    let msgs = snapshot.docs.map(d => ({ id: d.id, ...d.data() })).filter(m => !(m.deletedFor || []).includes(identity.code));
                     msgs.sort((a, b) => a.timestamp - b.timestamp);
                     setMessages(msgs);
 
                     const sharedSecret = await CryptoUtils.deriveSharedSecret(identity.privateKey, activeChat.publicKeyJWK);
                     const newDecrypted = { ...decryptedCache };
                     let changed = false;
-                    let latestReceivedMsg = null;
 
                     for (let msg of msgs) {
                         if (!newDecrypted[msg.id]) {
@@ -380,54 +464,292 @@
                             if (['audio', 'image', 'video'].includes(clearData.type)) newDecrypted[msg.id] = { type: clearData.type, url: URL.createObjectURL(clearData.data) };
                             else newDecrypted[msg.id] = { type: 'text', text: clearData.data };
                             changed = true;
-                            if (msg.sender !== identity.code) latestReceivedMsg = clearData;
                         }
                     }
-                    if (changed) {
-                        setDecryptedCache(newDecrypted);
-                        if (latestReceivedMsg) {
-                            showToast("Pesan Baru", "ph-chat-circle");
-                            if (document.hidden) pushOSNotification(`Pesan dari ${activeChat.displayName}`, latestReceivedMsg.type === 'text' ? latestReceivedMsg.text : `Mengirim ${latestReceivedMsg.type}`);
-                        }
-                    }
+                    if (changed) setDecryptedCache(newDecrypted);
                 });
 
                 const unsubSignal = fbDb.onSnapshot(fbDb.doc(db, `chats_${chatId}_signal`, 'room'), (doc) => {
                     const data = doc.data();
                     if (!data) return;
                     if (data.offer && data.caller !== identity.code && !rtcState) {
-                        setCallType(data.callType || 'video');
-                        setRtcState('receiving');
-                        if (document.hidden) pushOSNotification(`Panggilan ${data.callType === 'video' ? 'Video' : 'Suara'}`, `Masuk dari ${activeChat.displayName}`);
+                        setCallType(data.callType || 'video'); setRtcState('receiving');
                     }
-                    if (data.hangup && rtcState) {
-                        endCallCleanup();
-                        showToast("Panggilan Diakhiri", "ph-phone-slash");
-                    }
+                    if (data.hangup && rtcState) { endCallCleanup(); }
                 });
 
                 return () => { unsubChat(); unsubSignal(); endCallCleanup(); };
-            }, [fbReady, identity, activeChat, authView]);
+            }, [fbReady, identity, activeChat, authView, activeTab]);
 
-            // --- WEBRTC CORE ---
-            React.useEffect(() => {
-                if (rtcState === 'connected' || rtcState === 'calling') {
-                    if (localVideoRef.current && localStreamRef.current) { localVideoRef.current.srcObject = localStreamRef.current; localVideoRef.current.play().catch(()=>{}); }
-                    if (remoteVideoRef.current && remoteStreamRef.current) { remoteVideoRef.current.srcObject = remoteStreamRef.current; remoteVideoRef.current.play().catch(()=>{}); }
-                }
-            }, [rtcState]);
+            const handleRegister = async (e) => {
+                e.preventDefault();
+                const code = Array.from(window.crypto.getRandomValues(new Uint8Array(4))).map(b => b.toString(16).padStart(2, '0')).join('').toUpperCase();
+                const keypair = await CryptoUtils.generateKeypair();
+                const pubJWK = await CryptoUtils.exportKeyJWK(keypair.publicKey);
+                const privJWK = await CryptoUtils.exportKeyJWK(keypair.privateKey);
+                const passphrase = Array.from({length: 4}, () => DICT[Math.floor(Math.random() * DICT.length)]).join("-");
+                const wrapKey = await CryptoUtils.deriveWrapKey(passphrase, code);
+                const encryptedPriv = await CryptoUtils.encryptText(JSON.stringify(privJWK), wrapKey);
 
-            const setupMediaTracks = async (video) => {
-                try {
-                    const stream = await navigator.mediaDevices.getUserMedia({ 
-                        video: video ? { facingMode: "user", width: { ideal: 1280 }, height: { ideal: 720 } } : false, 
-                        audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true } 
-                    });
-                    localStreamRef.current = stream;
-                    if (localVideoRef.current) localVideoRef.current.srcObject = stream;
-                    stream.getTracks().forEach(track => pcRef.current.addTrack(track, stream));
-                } catch(e) { showToast("Gagal akses kamera/mikrofon.", "ph-warning"); throw e; }
+                setGeneratedRecoveryKey(`${code}-${passphrase}`);
+                const data = { code, displayName: setupName.trim(), publicKeyJWK: pubJWK, encryptedPrivKey: encryptedPriv, avatarUrl: null };
+                await fbModules.fbDb.setDoc(fbModules.fbDb.doc(fbModules.db, 'users', code), { ...data, createdAt: Date.now() });
+                await LocalDB.saveIdentity({ ...data, privateKeyJWK: privJWK });
+                setIdentity({ ...data, privateKey: keypair.privateKey, privateKeyJWK: privJWK });
+                setAuthView("key_reveal");
             };
+
+            const handleRestore = async (e) => {
+                e.preventDefault();
+                try {
+                    // BRUTAL SANITIZER: Only keep alphanumeric and dashes
+                    const input = recoveryKeyInput.replace(/[^a-zA-Z0-9-]/g, ''); 
+                    const parts = input.split('-');
+                    if(parts.length < 2) throw new Error("Format Salah");
+                    const code = parts[0].toUpperCase();
+                    const pass = parts.slice(1).join('-').toLowerCase();
+                    
+                    const snap = await fbModules.fbDb.getDoc(fbModules.fbDb.doc(fbModules.db, 'users', code));
+                    if (!snap.exists()) throw new Error("ID Tidak Ditemukan.");
+                    const data = snap.data();
+                    const wrapKey = await CryptoUtils.deriveWrapKey(pass, code);
+                    const decStr = await CryptoUtils.decryptPayload(data.encryptedPrivKey, wrapKey);
+                    if (decStr.type === 'error') throw new Error("Kunci Salah.");
+                    const privJWK = JSON.parse(decStr.data);
+                    const privKey = await CryptoUtils.importPrivateKey(privJWK);
+                    await LocalDB.saveIdentity({ ...data, privateKeyJWK: privJWK });
+                    setIdentity({ ...data, privateKey: privKey, privateKeyJWK: privJWK });
+                    setAuthView("main");
+                } catch (err) { showToast(err.message, "ph-warning"); }
+            };
+
+            const [editProfileName, setEditProfileName] = React.useState("");
+            const [isEditingProfile, setIsEditingProfile] = React.useState(false);
+
+            const handleUpdateProfile = async (e) => {
+                e.preventDefault();
+                const newName = editProfileName.trim();
+                await fbModules.fbDb.updateDoc(fbModules.fbDb.doc(fbModules.db, 'users', identity.code), { displayName: newName });
+                const updated = { ...identity, displayName: newName };
+                await LocalDB.saveIdentity(updated);
+                setIdentity(updated);
+                setIsEditingProfile(false);
+                showToast("Profil Diperbarui!");
+            };
+
+            const handleAvatarUpload = async (e) => {
+                const file = e.target.files[0];
+                if(!file) return;
+                setToast({msg: "Uploading...", icon: "ph-spinner animate-spin"});
+                try {
+                    const compressedBlob = await compressImage(file);
+                    const ref = fbModules.fbStorage.ref(fbModules.storage, `avatars/${identity.code}_${Date.now()}`);
+                    await fbModules.fbStorage.uploadBytes(ref, compressedBlob);
+                    const url = await fbModules.fbStorage.getDownloadURL(ref);
+                    await fbModules.fbDb.updateDoc(fbModules.fbDb.doc(fbModules.db, 'users', identity.code), { avatarUrl: url });
+                    const updated = { ...identity, avatarUrl: url };
+                    await LocalDB.saveIdentity(updated);
+                    setIdentity(updated);
+                    showToast("Avatar Berubah!");
+                } catch(e) { showToast("Gagal unggah foto.", "ph-warning"); }
+            };
+
+            const processAddFriend = async (e) => {
+                e.preventDefault();
+                const code = addCodeInput.trim().toUpperCase();
+                if (code === identity.code) return showToast("Dilarang ID Sendiri", "ph-warning");
+                try {
+                    const snap = await fbModules.fbDb.getDoc(fbModules.fbDb.doc(fbModules.db, 'users', code));
+                    if (!snap.exists()) return showToast("Target Tidak Ditemukan", "ph-warning");
+                    const target = snap.data();
+                    
+                    await fbModules.fbDb.setDoc(fbModules.fbDb.doc(fbModules.db, 'users', identity.code, 'contacts', code), {
+                        code: target.code, displayName: target.displayName, publicKeyJWK: target.publicKeyJWK, avatarUrl: target.avatarUrl || null
+                    });
+                    fbModules.fbDb.setDoc(fbModules.fbDb.doc(fbModules.db, 'users', code, 'contacts', identity.code), {
+                        code: identity.code, displayName: identity.displayName, publicKeyJWK: identity.publicKeyJWK, avatarUrl: identity.avatarUrl || null
+                    }).catch(()=>{});
+
+                    setActiveModal(null); setAddCodeInput(""); showToast("Kontak Ditambahkan!", "ph-check");
+                } catch (err) { showToast("Koneksi Gagal", "ph-warning"); }
+            };
+
+            // [STORY LOGIC FIXED: Compression & Safe Tries]
+            const handleStoryImageSelect = async (e) => { 
+                if(e.target.files[0]) {
+                    setToast({msg: "Memproses Foto...", icon: "ph-spinner animate-spin"});
+                    try {
+                        const compressed = await compressImage(e.target.files[0]);
+                        setStoryImageBlob(compressed);
+                    } catch(err) { showToast(err.message, "ph-warning"); }
+                    finally { setToast(null); }
+                }
+            };
+            const handleStoryAudioSelect = (e) => { 
+                if(e.target.files[0]) {
+                    if (e.target.files[0].size > 3 * 1024 * 1024) return showToast("Max Audio 3MB", "ph-warning");
+                    setStoryAudioBlob(e.target.files[0]); 
+                }
+            };
+
+            const startStoryAudioRecord = async () => {
+                try {
+                    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                    storyAudioRecorderRef.current = new MediaRecorder(stream, { mimeType: 'audio/webm' });
+                    storyAudioChunksRef.current = [];
+                    
+                    storyAudioRecorderRef.current.ondataavailable = e => { storyAudioChunksRef.current.push(e.data); };
+                    storyAudioRecorderRef.current.onstop = () => {
+                        const blob = new Blob(storyAudioChunksRef.current, { type: 'audio/webm' });
+                        setStoryAudioBlob(blob);
+                        stream.getTracks().forEach(t => t.stop());
+                    };
+                    
+                    storyAudioRecorderRef.current.start();
+                    setIsRecordingStoryAudio(true);
+                    setStoryRecTime(0);
+                    
+                    storyTimerRef.current = setInterval(() => setStoryRecTime(t => t + 1), 1000);
+                    storyAutoStopRef.current = setTimeout(() => { stopStoryAudioRecord(); }, 60000);
+                } catch(e) { showToast("Akses Mic Ditolak", "ph-warning"); }
+            };
+
+            const stopStoryAudioRecord = () => {
+                if (storyAudioRecorderRef.current && storyAudioRecorderRef.current.state === "recording") {
+                    storyAudioRecorderRef.current.stop();
+                    setIsRecordingStoryAudio(false);
+                    clearInterval(storyTimerRef.current);
+                    clearTimeout(storyAutoStopRef.current);
+                }
+            };
+
+            const publishMultipartStory = async () => {
+                if (!storyImageBlob) return showToast("Pilih Foto Dahulu!", "ph-warning");
+                setToast({msg: "Menyiapkan E2EE Payload...", icon: "ph-spinner animate-spin"});
+                const { db, fbDb, storage, fbStorage } = fbModules;
+                try {
+                    const { rawKey, cryptoKey } = await CryptoUtils.generateStoryKey();
+                    let payloadData = { isText: false, mediaType: 'multipart' };
+
+                    const { iv: imgIv, blob: imgBlob } = await CryptoUtils.encryptStoryMedia(await storyImageBlob.arrayBuffer(), cryptoKey);
+                    const imgRef = fbStorage.ref(storage, `stories/${identity.code}_img_${Date.now()}`);
+                    await fbStorage.uploadBytes(imgRef, imgBlob);
+                    payloadData.imgUrl = await fbStorage.getDownloadURL(imgRef);
+                    payloadData.imgIv = imgIv;
+
+                    if (storyAudioBlob) {
+                        const { iv: audIv, blob: audBlob } = await CryptoUtils.encryptStoryMedia(await storyAudioBlob.arrayBuffer(), cryptoKey);
+                        const audRef = fbStorage.ref(storage, `stories/${identity.code}_aud_${Date.now()}`);
+                        await fbStorage.uploadBytes(audRef, audBlob);
+                        payloadData.audUrl = await fbStorage.getDownloadURL(audRef);
+                        payloadData.audIv = audIv;
+                    }
+
+                    const encryptedKeys = {};
+                    for (let target of [...friends, identity]) {
+                        const sharedSecret = await CryptoUtils.deriveSharedSecret(identity.privateKey, target.publicKeyJWK);
+                        encryptedKeys[target.code] = await CryptoUtils.wrapKeyForFriend(rawKey, sharedSecret);
+                    }
+
+                    await fbDb.addDoc(fbDb.collection(db, 'stories'), { sender: identity.code, timestamp: Date.now(), expiresAt: Date.now() + 86400000, encryptedKeys, payload: payloadData });
+                    
+                    closeStoryCreator(); 
+                    showToast("Status Terkirim!", "ph-check-circle");
+                } catch (e) { 
+                    showToast(`Upload Error`, "ph-warning"); 
+                } finally { setToast(null); } // FIX: Ensure toast clears
+            };
+
+            const closeStoryCreator = () => {
+                setStoryMode(null); setStoryImageBlob(null); setStoryAudioBlob(null); setIsRecordingStoryAudio(false);
+                clearInterval(storyTimerRef.current); clearTimeout(storyAutoStopRef.current);
+            };
+
+            const loadAndDecryptStory = async (storyDoc, senderCode) => {
+                setCurrentStoryContent(null); setStoryProgress(0);
+                if(storyIntervalRef.current) clearInterval(storyIntervalRef.current);
+                try {
+                    const myKeyWrapper = storyDoc.encryptedKeys[identity.code];
+                    const targetData = senderCode === identity.code ? identity : friends.find(f => f.code === senderCode);
+                    const sharedSecret = await CryptoUtils.deriveSharedSecret(identity.privateKey, targetData.publicKeyJWK);
+                    const rawStoryKeyArray = await CryptoUtils.unwrapKeyFromFriend(myKeyWrapper, sharedSecret);
+                    const payload = storyDoc.payload;
+
+                    const cryptoKey = await crypto.subtle.importKey("raw", new Uint8Array(rawStoryKeyArray), "AES-GCM", false, ["decrypt"]);
+                    let contentResult = { type: 'multipart', imgUrl: null, audUrl: null };
+
+                    if (payload.imgUrl) {
+                        const res = await fetch(payload.imgUrl);
+                        const decBuf = await CryptoUtils.decryptStoryMedia(await res.blob(), payload.imgIv, rawStoryKeyArray);
+                        contentResult.imgUrl = URL.createObjectURL(new Blob([decBuf], {type: 'image/jpeg'}));
+                    }
+                    if (payload.audUrl) {
+                        const res = await fetch(payload.audUrl);
+                        const decBuf = await CryptoUtils.decryptStoryMedia(await res.blob(), payload.audIv, rawStoryKeyArray);
+                        contentResult.audUrl = URL.createObjectURL(new Blob([decBuf], {type: 'audio/webm'}));
+                    }
+                    
+                    setCurrentStoryContent(contentResult);
+                    if (!payload.audUrl) startStoryTimer(5000);
+                } catch (e) { setCurrentStoryContent({ type: 'error', text: "Gagal dekripsi." }); startStoryTimer(3000); }
+            };
+
+            const startStoryTimer = (duration) => {
+                let start = Date.now();
+                storyIntervalRef.current = setInterval(() => {
+                    let prog = ((Date.now() - start) / duration) * 100;
+                    if (prog >= 100) { clearInterval(storyIntervalRef.current); nextStory(); } else setStoryProgress(prog);
+                }, 50);
+            };
+            const nextStory = () => { if (viewingStoryIdx < activeStoryGroup.length - 1) { setViewingStoryIdx(v => v + 1); loadAndDecryptStory(activeStoryGroup[viewingStoryIdx + 1], activeStoryGroup[0].senderCode); } else closeStoryViewer(); };
+            const prevStory = () => { if (viewingStoryIdx > 0) { setViewingStoryIdx(v => v - 1); loadAndDecryptStory(activeStoryGroup[viewingStoryIdx - 1], activeStoryGroup[0].senderCode); } };
+            const closeStoryViewer = () => { if(storyIntervalRef.current) clearInterval(storyIntervalRef.current); setStoryMode(null); setActiveStoryGroup([]); };
+
+            const sendEncryptedPayload = async (payloadData) => {
+                const { db, fbDb } = fbModules;
+                const chatId = [identity.code, activeChat.code].sort().join('_');
+                await fbDb.addDoc(fbDb.collection(db, `chats_${chatId}`), { sender: identity.code, timestamp: Date.now(), payload: payloadData, status: 'sent' });
+            };
+
+            const handleSendText = async (e) => {
+                e.preventDefault();
+                if (!inputText.trim() || !activeChat) return;
+                const text = inputText.trim(); setInputText("");
+                const sharedSecret = await CryptoUtils.deriveSharedSecret(identity.privateKey, activeChat.publicKeyJWK);
+                const encryptedPayload = await CryptoUtils.encryptText(text, sharedSecret);
+                await sendEncryptedPayload(encryptedPayload);
+            };
+
+            const handleFileUpload = async (e) => {
+                const file = e.target.files[0];
+                if(!file || !activeChat) return;
+                try {
+                    const compressed = file.type.startsWith('image/') ? await compressImage(file) : file;
+                    const arrayBuffer = await compressed.arrayBuffer();
+                    const sharedSecret = await CryptoUtils.deriveSharedSecret(identity.privateKey, activeChat.publicKeyJWK);
+                    const type = file.type.startsWith('image/') ? 'image' : file.type.startsWith('video/') ? 'video' : 'error';
+                    const encryptedData = await CryptoUtils.encryptBinary(arrayBuffer, sharedSecret, type);
+                    await sendEncryptedPayload(encryptedData);
+                } catch (err) {} finally { e.target.value = ''; }
+            };
+
+            const startRecording = async () => {
+                try {
+                    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                    mediaRecorderRef.current = new MediaRecorder(stream, { mimeType: 'audio/webm' }); audioChunksRef.current = [];
+                    mediaRecorderRef.current.ondataavailable = (e) => { audioChunksRef.current.push(e.data); };
+                    mediaRecorderRef.current.onstop = async () => {
+                        stream.getTracks().forEach(t => t.stop());
+                        const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+                        const arrayBuffer = await audioBlob.arrayBuffer();
+                        const sharedSecret = await CryptoUtils.deriveSharedSecret(identity.privateKey, activeChat.publicKeyJWK);
+                        const encryptedAudio = await CryptoUtils.encryptBinary(arrayBuffer, sharedSecret, 'audio');
+                        await sendEncryptedPayload(encryptedAudio);
+                    };
+                    mediaRecorderRef.current.start(); setIsRecording(true);
+                } catch (err) {}
+            };
+            const stopRecording = () => { if (mediaRecorderRef.current?.state === "recording") { mediaRecorderRef.current.stop(); setIsRecording(false); } };
 
             const initializePeerConnection = (db, fbDb, chatId, role) => {
                 pcRef.current = new RTCPeerConnection(STUN_SERVERS);
@@ -440,25 +762,27 @@
                 const candidatesRef = fbDb.collection(db, `chats_${chatId}_signal`, 'room', role === 'caller' ? 'callerCandidates' : 'calleeCandidates');
                 pcRef.current.onicecandidate = event => { if (event.candidate) fbDb.addDoc(candidatesRef, event.candidate.toJSON()); };
             };
-
+            
             const endCallCleanup = async () => {
                 if (pcRef.current) { pcRef.current.close(); pcRef.current = null; }
                 if (localStreamRef.current) { localStreamRef.current.getTracks().forEach(t => t.stop()); localStreamRef.current = null; }
                 if (remoteStreamRef.current) { remoteStreamRef.current.getTracks().forEach(t => t.stop()); }
                 setRtcState(null);
             };
-
+            
             const initiateCall = async (type) => {
-                setChatMenuOpen(false); setCallType(type); setRtcState('calling');
+                setCallType(type); setRtcState('calling');
                 const { db, fbDb } = fbModules;
                 const chatId = [identity.code, activeChat.code].sort().join('_');
                 const roomRef = fbDb.doc(db, `chats_${chatId}_signal`, 'room');
                 
                 await fbDb.setDoc(roomRef, { hangup: true }); 
                 initializePeerConnection(db, fbDb, chatId, 'caller');
-
                 try {
-                    await setupMediaTracks(type === 'video');
+                    const stream = await navigator.mediaDevices.getUserMedia({ video: type === 'video' ? { facingMode: "user" } : false, audio: true });
+                    localStreamRef.current = stream; if (localVideoRef.current) localVideoRef.current.srcObject = stream;
+                    stream.getTracks().forEach(track => pcRef.current.addTrack(track, stream));
+
                     const offer = await pcRef.current.createOffer();
                     await pcRef.current.setLocalDescription(offer);
                     await fbDb.setDoc(roomRef, { offer: { type: offer.type, sdp: offer.sdp }, caller: identity.code, callType: type, hangup: false });
@@ -468,55 +792,39 @@
                         if (!pcRef.current?.currentRemoteDescription && data?.answer) {
                             await pcRef.current.setRemoteDescription(new RTCSessionDescription(data.answer));
                             setRtcState('connected');
-                            pendingCandidatesRef.current.forEach(c => pcRef.current.addIceCandidate(c).catch(()=>{}));
-                            pendingCandidatesRef.current = [];
+                            pendingCandidatesRef.current.forEach(c => pcRef.current.addIceCandidate(c).catch(()=>{})); pendingCandidatesRef.current = [];
                         }
                     });
                     fbDb.onSnapshot(fbDb.collection(db, `chats_${chatId}_signal`, 'room', 'calleeCandidates'), snapshot => {
-                        snapshot.docChanges().forEach(async change => {
-                            if (change.type === 'added' && pcRef.current) {
-                                const candidate = new RTCIceCandidate(change.doc.data());
-                                if (pcRef.current.remoteDescription) await pcRef.current.addIceCandidate(candidate);
-                                else pendingCandidatesRef.current.push(candidate);
-                            }
-                        });
+                        snapshot.docChanges().forEach(async change => { if (change.type === 'added' && pcRef.current) { const candidate = new RTCIceCandidate(change.doc.data()); if (pcRef.current.remoteDescription) await pcRef.current.addIceCandidate(candidate); else pendingCandidatesRef.current.push(candidate); } });
                     });
                 } catch(e) { endCallCleanup(); }
             };
-
+            
             const answerCall = async () => {
                 setRtcState('connected'); 
                 const { db, fbDb } = fbModules;
                 const chatId = [identity.code, activeChat.code].sort().join('_');
                 const roomRef = fbDb.doc(db, `chats_${chatId}_signal`, 'room');
-
                 initializePeerConnection(db, fbDb, chatId, 'callee');
-
                 try {
-                    await setupMediaTracks(callType === 'video');
-                    const roomSnapshot = await fbDb.getDoc(roomRef);
-                    const roomData = roomSnapshot.data();
+                    const stream = await navigator.mediaDevices.getUserMedia({ video: callType === 'video' ? { facingMode: "user" } : false, audio: true });
+                    localStreamRef.current = stream; if (localVideoRef.current) localVideoRef.current.srcObject = stream;
+                    stream.getTracks().forEach(track => pcRef.current.addTrack(track, stream));
+
+                    const roomData = (await fbDb.getDoc(roomRef)).data();
                     await pcRef.current.setRemoteDescription(new RTCSessionDescription(roomData.offer));
-                    
                     const answer = await pcRef.current.createAnswer();
                     await pcRef.current.setLocalDescription(answer);
                     await fbDb.updateDoc(roomRef, { answer: { type: answer.type, sdp: answer.sdp } });
-
-                    pendingCandidatesRef.current.forEach(c => pcRef.current.addIceCandidate(c).catch(()=>{}));
-                    pendingCandidatesRef.current = [];
+                    pendingCandidatesRef.current.forEach(c => pcRef.current.addIceCandidate(c).catch(()=>{})); pendingCandidatesRef.current = [];
 
                     fbDb.onSnapshot(fbDb.collection(db, `chats_${chatId}_signal`, 'room', 'callerCandidates'), snapshot => {
-                        snapshot.docChanges().forEach(async change => {
-                            if (change.type === 'added' && pcRef.current) {
-                                const candidate = new RTCIceCandidate(change.doc.data());
-                                if (pcRef.current.remoteDescription) await pcRef.current.addIceCandidate(candidate);
-                                else pendingCandidatesRef.current.push(candidate);
-                            }
-                        });
+                        snapshot.docChanges().forEach(async change => { if (change.type === 'added' && pcRef.current) { const candidate = new RTCIceCandidate(change.doc.data()); if (pcRef.current.remoteDescription) await pcRef.current.addIceCandidate(candidate); else pendingCandidatesRef.current.push(candidate); } });
                     });
                 } catch(e) { endCallCleanup(); }
             };
-
+            
             const hangupCall = async () => {
                 const { db, fbDb } = fbModules;
                 const chatId = [identity.code, activeChat.code].sort().join('_');
@@ -524,712 +832,388 @@
                 endCallCleanup();
             };
 
-            // --- STORY UPLOAD LOGIC ---
-            const publishStory = async (type, mediaBlob = null, textContent = null) => {
-                setLoadingState("Encrypting Story...");
-                const { db, fbDb, storage, fbStorage } = fbModules;
-                
-                try {
-                    const { rawKey, cryptoKey } = await CryptoUtils.generateStoryKey();
-                    let payloadData = {};
+            const executeLogout = async () => { await LocalDB.wipe(); window.location.reload(); };
 
-                    if (type === 'text') {
-                        const encryptedText = await CryptoUtils.encryptText(textContent, cryptoKey);
-                        payloadData = { isText: true, iv: encryptedText.iv, data: encryptedText.data, bg: creatorBg };
-                    } else {
-                        if (mediaBlob.size > 25000000) throw new Error("File terlalu besar. Max ~25MB untuk E2EE stabil.");
-                        const arrayBuffer = await mediaBlob.arrayBuffer();
-                        const { iv, blob } = await CryptoUtils.encryptStoryMedia(arrayBuffer, cryptoKey);
-                        
-                        const storageRef = fbStorage.ref(storage, `stories/${identity.code}_${Date.now()}`);
-                        await fbStorage.uploadBytes(storageRef, blob);
-                        const url = await fbStorage.getDownloadURL(storageRef);
-                        
-                        payloadData = { isText: false, url, iv, mediaType: type, filter: creatorFilter };
-                    }
-
-                    const encryptedKeys = {};
-                    const targets = [...friends, identity];
-                    for (let target of targets) {
-                        const sharedSecret = await CryptoUtils.deriveSharedSecret(identity.privateKey, target.publicKeyJWK);
-                        encryptedKeys[target.code] = await CryptoUtils.wrapKeyForFriend(rawKey, sharedSecret);
-                    }
-
-                    await fbDb.addDoc(fbDb.collection(db, 'stories'), { sender: identity.code, timestamp: Date.now(), expiresAt: Date.now() + (24 * 60 * 60 * 1000), encryptedKeys, payload: payloadData });
-                    showToast("Story Dibagikan", "ph-check-circle");
-                    closeStoryCreator();
-                } catch (e) { showToast("Gagal Upload: " + e.message, "ph-warning"); } finally { setLoadingState(""); }
-            };
-
-            const openStoryCreator = async () => {
-                setStoryMode('create'); setRecordedMedia(null); setCreatorType('camera');
-                try {
-                    const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" }, audio: true });
-                    creatorStreamRef.current = stream;
-                    setTimeout(() => { if (creatorVideoRef.current) creatorVideoRef.current.srcObject = stream; }, 100);
-                } catch (e) { showToast("Gagal akses kamera", "ph-warning"); setCreatorType('text'); }
-            };
-
-            const closeStoryCreator = () => {
-                if (creatorStreamRef.current) creatorStreamRef.current.getTracks().forEach(t => t.stop());
-                setStoryMode(null); setIsRecordingStory(false);
-            };
-
-            const capturePhoto = () => {
-                const canvas = document.createElement('canvas');
-                canvas.width = creatorVideoRef.current.videoWidth; canvas.height = creatorVideoRef.current.videoHeight;
-                canvas.getContext('2d').drawImage(creatorVideoRef.current, 0, 0);
-                canvas.toBlob(blob => setRecordedMedia({ blob, type: 'image' }), 'image/jpeg', 0.8);
-                if (creatorStreamRef.current) creatorStreamRef.current.getTracks().forEach(t => t.stop());
-            };
-
-            const startStoryVideo = () => {
-                storyChunksRef.current = [];
-                const options = { mimeType: 'video/webm;codecs=vp8,opus', videoBitsPerSecond: 500000 };
-                storyMediaRecorderRef.current = new MediaRecorder(creatorStreamRef.current, options);
-                storyMediaRecorderRef.current.ondataavailable = e => { if(e.data.size > 0) storyChunksRef.current.push(e.data); };
-                storyMediaRecorderRef.current.onstop = () => {
-                    const blob = new Blob(storyChunksRef.current, { type: 'video/webm' });
-                    setRecordedMedia({ blob, type: 'video' });
-                    if (creatorStreamRef.current) creatorStreamRef.current.getTracks().forEach(t => t.stop());
-                };
-                storyMediaRecorderRef.current.start();
-                setIsRecordingStory(true);
-                setTimeout(() => { if(storyMediaRecorderRef.current?.state === "recording") stopStoryVideo(); }, 300000); 
-            };
-            const stopStoryVideo = () => { if(storyMediaRecorderRef.current?.state === "recording") { storyMediaRecorderRef.current.stop(); setIsRecordingStory(false); } };
-
-            const [currentStoryContent, setCurrentStoryContent] = React.useState(null);
-
-            const openStoryViewer = (group) => {
-                setActiveStoryGroup(group.items); setViewingStoryIdx(0); setStoryMode('view');
-                loadAndDecryptStory(group.items[0], group.senderCode);
-            };
-
-            const loadAndDecryptStory = async (storyDoc, senderCode) => {
-                setCurrentStoryContent(null); setStoryProgress(0);
-                if(storyIntervalRef.current) clearInterval(storyIntervalRef.current);
-
-                try {
-                    const myKeyWrapper = storyDoc.encryptedKeys[identity.code];
-                    if(!myKeyWrapper) throw new Error("No key");
-
-                    const targetData = senderCode === identity.code ? identity : friends.find(f => f.code === senderCode);
-                    const sharedSecret = await CryptoUtils.deriveSharedSecret(identity.privateKey, targetData.publicKeyJWK);
-                    const rawStoryKeyArray = await CryptoUtils.unwrapKeyFromFriend(myKeyWrapper, sharedSecret);
-
-                    const payload = storyDoc.payload;
-                    if (payload.isText) {
-                        const cryptoKey = await crypto.subtle.importKey("raw", new Uint8Array(rawStoryKeyArray), "AES-GCM", false, ["decrypt"]);
-                        const decText = await crypto.subtle.decrypt({ name: "AES-GCM", iv: new Uint8Array(payload.iv) }, cryptoKey, new Uint8Array(payload.data));
-                        setCurrentStoryContent({ type: 'text', text: new TextDecoder().decode(decText), bg: payload.bg });
-                        startStoryTimer(5000); 
-                    } else {
-                        const response = await fetch(payload.url);
-                        const encryptedBlob = await response.blob();
-                        const decryptedBuffer = await CryptoUtils.decryptStoryMedia(encryptedBlob, payload.iv, rawStoryKeyArray);
-                        
-                        let mime = payload.mediaType === 'video' ? 'video/webm' : 'image/jpeg';
-                        const url = URL.createObjectURL(new Blob([decryptedBuffer], {type: mime}));
-                        setCurrentStoryContent({ type: payload.mediaType, url, filter: payload.filter });
-                        
-                        if(payload.mediaType === 'image') startStoryTimer(5000);
-                    }
-                } catch (e) {
-                    setCurrentStoryContent({ type: 'error', text: "Gagal dekripsi." });
-                    startStoryTimer(3000);
-                }
-            };
-
-            const startStoryTimer = (duration) => {
-                let start = Date.now();
-                storyIntervalRef.current = setInterval(() => {
-                    let elapsed = Date.now() - start;
-                    let prog = (elapsed / duration) * 100;
-                    if (prog >= 100) { clearInterval(storyIntervalRef.current); nextStory(); }
-                    else { setStoryProgress(prog); }
-                }, 50);
-            };
-
-            const nextStory = () => {
-                if (viewingStoryIdx < activeStoryGroup.length - 1) {
-                    setViewingStoryIdx(v => v + 1);
-                    loadAndDecryptStory(activeStoryGroup[viewingStoryIdx + 1], activeStoryGroup[0].sender);
-                } else { closeStoryViewer(); }
-            };
-            const prevStory = () => {
-                if (viewingStoryIdx > 0) {
-                    setViewingStoryIdx(v => v - 1);
-                    loadAndDecryptStory(activeStoryGroup[viewingStoryIdx - 1], activeStoryGroup[0].sender);
-                }
-            };
-            const closeStoryViewer = () => {
-                if(storyIntervalRef.current) clearInterval(storyIntervalRef.current);
-                setStoryMode(null); setActiveStoryGroup([]);
-            };
-
-            // --- AUTH LOGIC ---
-            const handleRegister = async (e) => {
-                e.preventDefault();
-                if (!setupName.trim() || !fbModules) return;
-                if ("Notification" in window && Notification.permission !== "granted") Notification.requestPermission();
-                setLoadingState("Generating Wrapped Keys...");
-                try {
-                    const code = Array.from(window.crypto.getRandomValues(new Uint8Array(4))).map(b => b.toString(16).padStart(2, '0')).join('').toUpperCase();
-                    const keypair = await CryptoUtils.generateKeypair();
-                    const pubJWK = await CryptoUtils.exportKeyJWK(keypair.publicKey);
-                    const privJWK = await CryptoUtils.exportKeyJWK(keypair.privateKey);
-                    
-                    const randomWords = Array.from({length: 9}, () => DICT[Math.floor(Math.random() * DICT.length)]);
-                    const passphrase = randomWords.join("-");
-                    const wrapKey = await CryptoUtils.deriveWrapKey(passphrase, code);
-                    const encryptedPrivKeyData = await CryptoUtils.encryptText(JSON.stringify(privJWK), wrapKey);
-
-                    setGeneratedRecoveryKey(`${code}.${passphrase}`);
-                    const { db, fbDb } = fbModules;
-                    
-                    await withTimeout(fbDb.setDoc(fbDb.doc(db, 'users', code), { code, displayName: setupName.trim(), publicKeyJWK: pubJWK, encryptedPrivKey: encryptedPrivKeyData, createdAt: Date.now() }), 10000, "Koneksi ke server Database gagal.");
-                    await LocalDB.saveIdentity(code, privJWK, pubJWK, setupName.trim());
-                    setIdentity({ code, privateKey: keypair.privateKey, publicKeyJWK: pubJWK, displayName: setupName.trim() });
-                    setAuthView("key_reveal");
-                } catch (err) { setSysError(`REGISTRATION_FAILED: ${err.message}`); } finally { setLoadingState(""); }
-            };
-
-            const handleRestore = async (e) => {
-                e.preventDefault();
-                if (!recoveryKeyInput.trim() || !fbModules) return;
-                if ("Notification" in window && Notification.permission !== "granted") Notification.requestPermission();
-                setLoadingState("Fetching Identity...");
-                try {
-                    const cleanInput = recoveryKeyInput.replace(/\s+/g, '').trim();
-                    const parts = cleanInput.split('.');
-                    if (parts.length < 2) throw new Error("Format salah. Harus mengandung pemisah titik (.)");
-                    
-                    const code = parts[0].toUpperCase();
-                    const inputPassphrase = parts.slice(1).join('.').toLowerCase();
-
-                    const { db, fbDb } = fbModules;
-                    const snap = await fbDb.getDoc(fbDb.doc(db, 'users', code));
-                    if (!snap.exists()) throw new Error("Public ID tidak ditemukan di server.");
-                    
-                    const data = snap.data();
-                    if (!data.encryptedPrivKey) throw new Error("Data akun di server korup.");
-
-                    setLoadingState("Decrypting Key...");
-                    const wrapKey = await CryptoUtils.deriveWrapKey(inputPassphrase, code);
-                    const decryptedPrivString = await CryptoUtils.decryptText(data.encryptedPrivKey, wrapKey);
-                    
-                    if (decryptedPrivString.startsWith("🔒")) throw new Error("Kata kunci Mnemonic salah.");
-                    
-                    let privJWK;
-                    try { privJWK = JSON.parse(decryptedPrivString); } catch(e) { throw new Error("Gagal membaca struktur kunci."); }
-
-                    const privKey = await CryptoUtils.importPrivateKey(privJWK);
-                    await LocalDB.saveIdentity(code, privJWK, data.publicKeyJWK, data.displayName);
-                    setIdentity({ code, privateKey: privKey, publicKeyJWK: data.publicKeyJWK, displayName: data.displayName });
-                    setAuthView("main");
-                } catch (err) { showToast(err.message, "ph-warning"); } finally { setLoadingState(""); }
-            };
-
-            const executeLogout = async () => { 
-                const { fbAuth, auth } = fbModules;
-                await fbAuth.signOut(auth);
-                await LocalDB.wipeData(); 
-                setIdentity(null); setActiveChat(null); setAuthView("choice"); setActiveModal(null); setRecoveryKeyInput(""); setDialog({show:false}); 
-            };
-
-            const processAddFriend = async (codeToBind) => {
-                const code = codeToBind.toUpperCase();
-                if (code === identity.code) return showToast("Gagal: ID Sendiri.", "ph-warning");
-                if (friends.find(f => f.code === code)) return showToast("Kontak sudah ada.", "ph-info");
-
-                showToast("Menyelaraskan Koneksi...", "ph-spinner animate-spin");
-                const { db, fbDb } = fbModules;
-                
-                try {
-                    const snap = await fbDb.getDoc(fbDb.doc(db, 'users', code));
-                    if (!snap.exists()) return showToast("Public ID Invalid.", "ph-warning");
-                    const targetData = snap.data();
-                    await fbDb.setDoc(fbDb.doc(db, 'users', identity.code, 'contacts', code), { code: targetData.code, displayName: targetData.displayName, publicKeyJWK: targetData.publicKeyJWK });
-                    await fbDb.setDoc(fbDb.doc(db, 'users', code, 'contacts', identity.code), { code: identity.code, displayName: identity.displayName, publicKeyJWK: identity.publicKeyJWK });
-                    showToast("Koneksi Berhasil!", "ph-check-circle"); setActiveModal(null); setAddCodeInput("");
-                } catch (err) { showToast("Akses Ditolak Jaringan.", "ph-warning"); }
-            };
-
-            // --- CHAT MESSAGING LOGIC ---
-            const sendEncryptedPayload = async (payloadData) => {
-                const { db, fbDb } = fbModules;
-                const chatId = [identity.code, activeChat.code].sort().join('_');
-                await fbDb.addDoc(fbDb.collection(db, `chats_${chatId}`), { sender: identity.code, timestamp: Date.now(), payload: payloadData, status: 'sent', deletedFor: [] });
-            };
-
-            const handleSendText = async (e) => {
-                e.preventDefault();
-                if (!inputText.trim() || !activeChat || !fbModules) return;
-                const text = inputText.trim(); setInputText("");
-                try {
-                    const sharedSecret = await CryptoUtils.deriveSharedSecret(identity.privateKey, activeChat.publicKeyJWK);
-                    const encryptedPayload = await CryptoUtils.encryptText(text, sharedSecret);
-                    await sendEncryptedPayload(encryptedPayload);
-                } catch (error) { showToast("Gagal enkripsi teks.", "ph-warning"); }
-            };
-
-            const handleFileUpload = async (e) => {
-                const file = e.target.files[0];
-                if(!file || !activeChat) return;
-                if(file.size > 700000) return triggerDialog("Batas Memori", "Batas ukuran file E2EE adalah 700KB.", () => setDialog({show:false}));
-                
-                setToast({msg: "Mengenkripsi File...", icon: "ph-spinner animate-spin"});
-                try {
-                    const arrayBuffer = await file.arrayBuffer();
-                    const sharedSecret = await CryptoUtils.deriveSharedSecret(identity.privateKey, activeChat.publicKeyJWK);
-                    const type = file.type.startsWith('image/') ? 'image' : file.type.startsWith('video/') ? 'video' : 'error';
-                    if(type === 'error') return showToast("Format tidak didukung.", "ph-warning");
-                    const encryptedData = await CryptoUtils.encryptBinary(arrayBuffer, sharedSecret, type);
-                    await sendEncryptedPayload(encryptedData); showToast("File Terkirim", "ph-check-circle");
-                } catch (err) { showToast("Gagal memproses file.", "ph-warning"); } finally { e.target.value = ''; }
-            };
-
-            const startRecording = async () => {
-                try {
-                    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-                    const mediaRecorder = new MediaRecorder(stream, { mimeType: 'audio/webm;codecs=opus' });
-                    mediaRecorderRef.current = mediaRecorder; audioChunksRef.current = [];
-                    mediaRecorder.ondataavailable = (e) => { if (e.data.size > 0) audioChunksRef.current.push(e.data); };
-                    mediaRecorder.onstop = async () => {
-                        stream.getTracks().forEach(t => t.stop());
-                        const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
-                        if (audioBlob.size > 700000) return showToast("Durasi terlalu panjang", "ph-warning"); 
-                        setToast({msg: "Mengenkripsi VN...", icon: "ph-spinner animate-spin"});
-                        try {
-                            const arrayBuffer = await audioBlob.arrayBuffer();
-                            const sharedSecret = await CryptoUtils.deriveSharedSecret(identity.privateKey, activeChat.publicKeyJWK);
-                            const encryptedAudio = await CryptoUtils.encryptBinary(arrayBuffer, sharedSecret, 'audio');
-                            await sendEncryptedPayload(encryptedAudio); showToast("VN Terkirim", "ph-check-circle");
-                        } catch (error) { showToast("Gagal enkripsi VN.", "ph-warning"); }
-                    };
-                    mediaRecorder.start(); setIsRecording(true);
-                    setTimeout(() => { if(mediaRecorderRef.current?.state === "recording") stopRecording(); }, 15000);
-                } catch (err) { showToast("Izin mikrofon ditolak.", "ph-warning"); }
-            };
-
-            const stopRecording = () => { if (mediaRecorderRef.current?.state === "recording") { mediaRecorderRef.current.stop(); setIsRecording(false); } };
-
-            const toggleSelection = (id) => setSelectedMsgs(prev => prev.includes(id) ? prev.filter(m => m !== id) : [...prev, id]);
-
-            const executeDelete = async (type) => {
-                if (selectedMsgs.length === 0) return;
-                setDialog({show: false}); setToast({msg: "Menghapus...", icon: "ph-spinner animate-spin"});
-                const { db, fbDb, arrayUnion } = fbModules;
-                const chatId = [identity.code, activeChat.code].sort().join('_');
-                try {
-                    for (let msgId of selectedMsgs) {
-                        const msgRef = fbDb.doc(db, `chats_${chatId}`, msgId);
-                        if (type === 'me') await fbDb.updateDoc(msgRef, { deletedFor: arrayUnion(identity.code) });
-                        else if (type === 'all') await fbDb.deleteDoc(msgRef);
-                    }
-                    showToast("Pesan Dihapus", "ph-trash");
-                } catch(e) { showToast("Gagal menghapus", "ph-warning"); }
-                finally { setIsSelecting(false); setSelectedMsgs([]); }
-            };
-
-            const clearAllChats = async () => {
-                setDialog({show: false}); setToast({msg: "Membersihkan Riwayat...", icon: "ph-spinner animate-spin"});
-                const { db, fbDb, arrayUnion } = fbModules;
-                const chatId = [identity.code, activeChat.code].sort().join('_');
-                try {
-                    for (let msg of messages) await fbDb.updateDoc(fbDb.doc(db, `chats_${chatId}`, msg.id), { deletedFor: arrayUnion(identity.code) });
-                    showToast("Riwayat Bersih", "ph-check-circle");
-                } catch(e) { showToast("Gagal membersihkan", "ph-warning"); }
-            };
-
-            // --- RENDERERS ---
-            if (sysError) return (
-                <div className="h-screen flex items-center justify-center p-6 bg-black text-white">
-                    <div className="text-center w-full max-w-sm"><i className="ph-fill ph-warning-circle text-5xl mb-4 text-[var(--danger)]"></i><h1 className="text-xl font-bold mb-2">SYSTEM FAULT</h1><div className="bg-red-900/30 border border-red-500/30 p-4 rounded-xl text-left text-xs font-mono text-red-400 mt-4">{sysError}</div><button onClick={() => { localStorage.clear(); window.location.reload(); }} className="mt-6 w-full py-3 bg-[var(--surface)] rounded-xl font-bold">Hard Reboot</button></div>
-                </div>
-            );
-
-            if (!fbReady || loadingState) return (
-                <div className="h-screen flex flex-col items-center justify-center bg-[var(--bg-dark)] z-[99999] absolute inset-0">
-                    <i className="ph ph-spinner-gap animate-spin text-4xl mb-4 text-[var(--primary)]"></i>
-                    <p className="text-[var(--text-muted)] text-sm font-mono text-center px-6">{loadingState}</p>
-                    <p className="text-[10px] text-[var(--danger)] mt-4 max-w-xs text-center">Peringatan Arsitektur: Enkripsi E2EE memakan CPU. Dilarang memuat ulang saat proses ini.</p>
-                </div>
-            );
+            if (!fbReady) return <div className="h-full w-full flex items-center justify-center absolute inset-0 bg-[var(--bg-color)]"><i className="ph animate-spin ph-spinner text-[var(--text-primary)] text-3xl"></i></div>;
 
             return (
-                <div className="flex h-screen w-full overflow-hidden relative">
+                <div className="flex w-full h-full relative bg-custom-bg text-custom-main">
                     {toast && (
-                        <div className="absolute top-4 left-1/2 transform -translate-x-1/2 z-[100] toast-enter w-[90%] max-w-[320px]">
-                            <div className="glass-panel px-5 py-3 rounded-full flex items-center gap-3 shadow-lg border border-white/10 justify-center">
-                                <i className={`text-xl text-[var(--primary)] ${toast.icon}`}></i><span className="text-sm font-semibold truncate">{toast.msg}</span>
+                        <div className="absolute top-10 left-1/2 transform -translate-x-1/2 z-[2000] toast-enter">
+                            <div className="ios-glass px-5 py-2.5 rounded-full flex items-center gap-3 shadow-2xl border-custom font-semibold text-sm">
+                                <i className={`${toast.icon} text-[var(--ios-blue)] text-lg`}></i> {toast.msg}
                             </div>
                         </div>
                     )}
-
+                    
                     {dialog.show && (
-                        <div className="absolute inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm modal-enter">
-                            <div className="bg-[var(--surface)] w-full max-w-[300px] rounded-2xl flex flex-col items-center text-center dialog-enter shadow-2xl border border-[var(--border)] overflow-hidden">
-                                <div className="p-6 pb-5"><h3 className="font-bold text-lg mb-1">{dialog.title}</h3><p className="text-sm text-[var(--text-muted)] leading-tight">{dialog.msg}</p></div>
-                                <div className="flex w-full border-t border-[var(--border)] flex-col">
-                                    {dialog.onConfirm && <button onClick={dialog.onConfirm} className={`w-full py-3.5 font-bold btn-press border-b border-[var(--border)] ${dialog.isDestructive ? 'text-[var(--danger)]' : 'text-[var(--primary)]'}`}>Setuju</button>}
-                                    <button onClick={() => setDialog({show:false})} className="w-full py-3.5 text-[var(--primary)] font-semibold btn-press">Batal</button>
+                        <div className="absolute inset-0 z-[100] flex items-center justify-center p-4 bg-black/40 modal-enter">
+                            <div className="ios-modal w-full max-w-[280px] rounded-3xl flex flex-col items-center text-center dialog-enter">
+                                <div className="p-5 pb-4"><h3 className="font-bold text-[17px] mb-1">{dialog.title}</h3><p className="text-[13px] text-custom-muted leading-tight">{dialog.msg}</p></div>
+                                <div className="flex w-full border-t border-custom flex-col">
+                                    {dialog.onConfirm && <button onClick={dialog.onConfirm} className={`w-full py-3.5 font-semibold btn-press border-b border-custom ${dialog.isDestructive ? 'text-[var(--ios-red)]' : 'text-[var(--ios-blue)]'}`}>Setuju</button>}
+                                    <button onClick={() => setDialog({show:false})} className="w-full py-3.5 text-[var(--ios-blue)] font-semibold btn-press">Batal</button>
                                 </div>
                             </div>
                         </div>
                     )}
 
-                    {/* OVERLAYS: WebRTC & Stories (Sama seperti V7) */}
+                    {/* WEBRTC OVERLAY */}
                     {rtcState && (
-                        <div className="call-container modal-enter">
+                        <div className="call-container">
                             {rtcState === 'receiving' ? (
-                                <div className="flex-1 flex flex-col items-center justify-center bg-[var(--surface)] relative z-20">
-                                    <div className="w-32 h-32 rounded-full bg-gradient-to-tr from-blue-500 to-cyan-400 flex items-center justify-center text-5xl text-white shadow-[0_0_80px_rgba(10,132,255,0.5)] animate-pulse mb-8 border-4 border-white/20">{activeChat?.displayName.charAt(0)}</div>
-                                    <h2 className="text-3xl font-bold mb-2">{activeChat?.displayName}</h2>
-                                    <p className="text-[var(--text-muted)] mb-16 text-lg tracking-wide">Panggilan {callType === 'video' ? 'Video' : 'Suara'} E2EE...</p>
-                                    <div className="flex gap-12">
-                                        <button onClick={hangupCall} className="w-20 h-20 rounded-full bg-[var(--danger)] flex items-center justify-center btn-press shadow-xl border-4 border-red-400/30"><i className="ph-fill ph-phone-slash text-4xl text-white"></i></button>
-                                        <button onClick={answerCall} className="w-20 h-20 rounded-full bg-[var(--success)] flex items-center justify-center btn-press animate-bounce shadow-xl border-4 border-green-400/30"><i className="ph-fill ph-phone text-4xl text-white"></i></button>
+                                <div className="flex-1 flex flex-col items-center justify-center relative z-20 bg-black/80 backdrop-blur-xl">
+                                    <div className="w-32 h-32 rounded-full bg-gradient-to-tr from-blue-500 to-cyan-400 flex items-center justify-center text-5xl font-bold mb-8 shadow-[0_0_50px_rgba(10,132,255,0.4)] animate-pulse overflow-hidden border-2 border-white/20">
+                                        {activeChat?.avatarUrl ? <img src={activeChat.avatarUrl} className="w-full h-full object-cover"/> : (activeChat?.displayName?.charAt(0) || '?')}
+                                    </div>
+                                    <h2 className="text-3xl font-bold mb-2 tracking-tight">{activeChat?.displayName || 'Unknown'}</h2>
+                                    <p className="text-white/60 mb-16 text-lg">Menghubungi via E2EE...</p>
+                                    <div className="flex gap-16">
+                                        <button onClick={hangupCall} className="w-[72px] h-[72px] rounded-full bg-[var(--ios-red)] flex items-center justify-center btn-press"><i className="ph-fill ph-phone-disconnect text-3xl"></i></button>
+                                        <button onClick={answerCall} className="w-[72px] h-[72px] rounded-full bg-[var(--ios-green)] flex items-center justify-center btn-press animate-bounce"><i className="ph-fill ph-phone text-3xl"></i></button>
                                     </div>
                                 </div>
                             ) : (
                                 <React.Fragment>
-                                    <div className="call-ui-overlay"></div>
                                     <video ref={remoteVideoRef} autoPlay playsInline className="call-video"></video>
                                     {callType === 'video' && <video ref={localVideoRef} autoPlay playsInline muted className="local-video"></video>}
-                                    <div className="absolute top-16 w-full text-center z-50">
-                                        <h2 className="text-2xl font-bold drop-shadow-lg text-white">{activeChat?.displayName}</h2>
-                                        <p className="text-sm font-mono text-white/90 bg-black/40 px-3 py-1 rounded-full inline-block mt-2 backdrop-blur-md">{rtcState === 'calling' ? 'Menghubungi...' : '🔒 Terenkripsi P2P'}</p>
+                                    <div className="absolute top-14 w-full text-center z-50">
+                                        <h2 className="text-[26px] font-bold drop-shadow-md text-white">{activeChat?.displayName || 'Unknown'}</h2>
+                                        <p className="text-[13px] font-mono text-white/80 mt-1">{rtcState === 'calling' ? 'Menghubungi...' : 'Aman E2EE'}</p>
                                     </div>
-                                    <div className="call-controls">
-                                        <button onClick={hangupCall} className="w-16 h-16 rounded-full bg-[var(--danger)] flex items-center justify-center btn-press shadow-2xl border-2 border-white/20"><i className="ph-fill ph-phone-slash text-3xl text-white"></i></button>
+                                    <div className="absolute bottom-[60px] w-full flex justify-center z-50">
+                                        <button onClick={hangupCall} className="w-[72px] h-[72px] rounded-full bg-[var(--ios-red)] flex items-center justify-center btn-press shadow-2xl text-white"><i className="ph-fill ph-phone-disconnect text-[32px]"></i></button>
                                     </div>
                                 </React.Fragment>
                             )}
                         </div>
                     )}
 
-                    {storyMode === 'create' && (
-                        <div className="fixed inset-0 z-[100] bg-black flex flex-col modal-enter">
-                            <div className="absolute top-12 left-5 z-50">
-                                <button onClick={closeStoryCreator} className="w-10 h-10 bg-black/50 rounded-full flex items-center justify-center text-white"><i className="ph-bold ph-x text-xl"></i></button>
-                            </div>
-                            
-                            {!recordedMedia ? (
-                                <div className="flex-1 relative flex flex-col">
-                                    {creatorType === 'camera' ? (
-                                        <video ref={creatorVideoRef} autoPlay playsInline muted className={`absolute inset-0 w-full h-full object-cover ${creatorFilter}`}></video>
-                                    ) : (
-                                        <div className={`absolute inset-0 w-full h-full flex items-center justify-center p-8 ${creatorBg}`}>
-                                            <textarea autoFocus value={creatorText} onChange={e=>setCreatorText(e.target.value)} placeholder="Tulis rahasia..." className="w-full bg-transparent text-white text-3xl font-bold text-center outline-none resize-none placeholder-white/50" rows="5"></textarea>
-                                        </div>
-                                    )}
-
-                                    <div className="absolute bottom-10 w-full flex flex-col items-center gap-6 z-50">
-                                        {creatorType === 'camera' && (
-                                            <div className="flex gap-3 overflow-x-auto w-full px-6 pb-2 hide-scrollbar justify-center">
-                                                {['filter-normal', 'filter-iphone', 'filter-vintage', 'filter-bw', 'filter-cyber'].map(f => (
-                                                    <button key={f} onClick={() => setCreatorFilter(f)} className={`w-12 h-12 rounded-full border-2 ${creatorFilter===f ? 'border-white' : 'border-transparent'} bg-black/50 text-xs font-bold text-white capitalize`}>{f.split('-')[1]}</button>
-                                                ))}
-                                            </div>
-                                        )}
-                                        {creatorType === 'text' && (
-                                            <div className="flex gap-3 overflow-x-auto w-full px-6 pb-2 hide-scrollbar justify-center">
-                                                {['bg-gradient-to-tr from-blue-600 to-purple-600', 'bg-gradient-to-tr from-gray-900 to-black', 'bg-gradient-to-br from-pink-500 to-orange-400', 'bg-gradient-to-bl from-green-500 to-teal-700'].map((bg,i) => (
-                                                    <button key={i} onClick={() => setCreatorBg(bg)} className={`w-10 h-10 rounded-full border-2 ${creatorBg===bg ? 'border-white' : 'border-transparent'} ${bg}`}></button>
-                                                ))}
-                                            </div>
-                                        )}
-
-                                        <div className="flex items-center gap-8">
-                                            <button onClick={()=>setCreatorType('text')} className={`text-white font-bold text-sm ${creatorType==='text'?'opacity-100':'opacity-50'}`}>Aa</button>
-                                            
-                                            {creatorType === 'camera' ? (
-                                                <div 
-                                                    onPointerDown={startStoryVideo} 
-                                                    onPointerUp={stopStoryVideo}
-                                                    onClick={capturePhoto}
-                                                    className={`w-20 h-20 rounded-full border-4 border-white flex items-center justify-center transition-all ${isRecordingStory ? 'scale-125 bg-red-500/50' : 'bg-transparent'}`}>
-                                                    <div className="w-16 h-16 bg-white rounded-full"></div>
-                                                </div>
-                                            ) : (
-                                                <button onClick={() => publishStory('text', null, creatorText)} disabled={!creatorText.trim()} className="w-16 h-16 bg-white text-black rounded-full flex items-center justify-center font-bold text-xl"><i className="ph-bold ph-paper-plane-right"></i></button>
-                                            )}
-
-                                            <button onClick={()=>setCreatorType('camera')} className={`text-white font-bold text-sm ${creatorType==='camera'?'opacity-100':'opacity-50'}`}><i className="ph-bold ph-camera text-xl"></i></button>
-                                        </div>
-                                        {creatorType === 'camera' && <p className="text-white/70 text-xs font-mono">Tap foto | Tahan video (Max 5M)</p>}
+                    {/* MODAL PROFILE (FIXED) */}
+                    {activeModal === 'profile' && (
+                        <div className="fixed inset-0 z-[1100] flex items-center justify-center p-4 bg-black/50 modal-enter">
+                            <div className="ios-modal w-full max-w-sm rounded-[32px] p-8 flex flex-col items-center text-center dialog-enter relative">
+                                <button onClick={()=>{setActiveModal(null); setIsEditingProfile(false);}} className="absolute top-5 right-5 w-8 h-8 bg-custom-surface rounded-full btn-press"><i className="ph ph-x"></i></button>
+                                
+                                <input type="file" ref={avatarInputRef} className="hidden" accept="image/*" onChange={handleAvatarUpload} />
+                                <div className="relative mb-4 group cursor-pointer btn-press" onClick={()=>avatarInputRef.current.click()}>
+                                    <div className="w-24 h-24 rounded-full bg-gradient-to-tr from-blue-500 to-cyan-400 overflow-hidden border-2 border-custom flex items-center justify-center">
+                                        {identity?.avatarUrl ? <img src={identity.avatarUrl} className="w-full h-full object-cover"/> : <span className="text-4xl font-bold text-white">{identity?.displayName?.charAt(0)}</span>}
                                     </div>
-                                </div>
-                            ) : (
-                                <div className="flex-1 relative bg-black">
-                                    {recordedMedia.type === 'video' ? (
-                                        <video src={URL.createObjectURL(recordedMedia.blob)} autoPlay loop playsInline className={`w-full h-full object-cover ${creatorFilter}`}></video>
-                                    ) : (
-                                        <img src={URL.createObjectURL(recordedMedia.blob)} className={`w-full h-full object-cover ${creatorFilter}`} />
-                                    )}
-                                    <div className="absolute bottom-10 right-6 flex gap-4">
-                                        <button onClick={()=>setRecordedMedia(null)} className="w-14 h-14 bg-black/60 rounded-full text-white flex items-center justify-center"><i className="ph-bold ph-trash text-xl"></i></button>
-                                        <button onClick={()=>publishStory(recordedMedia.type, recordedMedia.blob)} className="w-14 h-14 bg-[var(--primary)] rounded-full text-white flex items-center justify-center"><i className="ph-bold ph-paper-plane-right text-xl"></i></button>
-                                    </div>
-                                </div>
-                            )}
-                        </div>
-                    )}
-
-                    {storyMode === 'view' && (
-                        <div className="fixed inset-0 z-[100] bg-black flex flex-col">
-                            <div className="absolute top-12 left-0 w-full px-2 flex gap-1 z-50">
-                                {activeStoryGroup.map((_, idx) => (
-                                    <div key={idx} className="h-1 flex-1 bg-white/30 rounded-full overflow-hidden">
-                                        <div className="h-full bg-white transition-all duration-50" style={{ width: idx < viewingStoryIdx ? '100%' : idx === viewingStoryIdx ? `${storyProgress}%` : '0%' }}></div>
-                                    </div>
-                                ))}
-                            </div>
-                            
-                            <div className="absolute top-16 left-4 z-50 flex items-center gap-3">
-                                <div className="w-10 h-10 rounded-full bg-gray-800 border border-white flex items-center justify-center text-white font-bold">{activeStoryGroup[0]?.sender === identity?.code ? 'Me' : friends.find(f=>f.code===activeStoryGroup[0]?.sender)?.displayName.charAt(0)}</div>
-                                <span className="text-white font-bold text-sm shadow-black drop-shadow-md">{activeStoryGroup[0]?.sender === identity?.code ? 'My Story' : friends.find(f=>f.code===activeStoryGroup[0]?.sender)?.displayName}</span>
-                            </div>
-                            <button onClick={closeStoryViewer} className="absolute top-16 right-4 z-50 w-10 h-10 text-white drop-shadow-md"><i className="ph-bold ph-x text-2xl"></i></button>
-
-                            <div className="flex-1 relative flex items-center justify-center">
-                                {!currentStoryContent ? (
-                                    <i className="ph ph-spinner animate-spin text-4xl text-white"></i>
-                                ) : currentStoryContent.type === 'text' ? (
-                                    <div className={`w-full h-full flex items-center justify-center p-8 ${currentStoryContent.bg}`}>
-                                        <p className="text-white text-3xl font-bold text-center">{currentStoryContent.text}</p>
-                                    </div>
-                                ) : currentStoryContent.type === 'image' ? (
-                                    <img src={currentStoryContent.url} className={`w-full h-full object-cover ${currentStoryContent.filter}`} />
-                                ) : currentStoryContent.type === 'video' ? (
-                                    <video src={currentStoryContent.url} autoPlay playsInline onEnded={nextStory} className={`w-full h-full object-cover ${currentStoryContent.filter}`}></video>
-                                ) : (
-                                    <div className="text-white font-mono">{currentStoryContent.text}</div>
-                                )}
-                            </div>
-                            <div className="absolute inset-0 z-40 flex">
-                                <div className="w-1/3 h-full" onClick={prevStory}></div>
-                                <div className="w-2/3 h-full" onClick={nextStory}></div>
-                            </div>
-                        </div>
-                    )}
-
-                    {activeModal && (
-                        <div className="absolute inset-0 z-[60] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md modal-enter">
-                            <div className="bg-[var(--surface)] w-full max-w-sm rounded-[32px] p-6 flex flex-col items-center text-center relative border border-[var(--border)] shadow-2xl dialog-enter">
-                                <button onClick={() => setActiveModal(null)} className="absolute top-5 right-5 w-8 h-8 flex items-center justify-center bg-white/10 rounded-full btn-press"><i className="ph-bold ph-x text-sm"></i></button>
-                                {activeModal === 'profile' && identity && (
-                                    <>
-                                        <div className="w-20 h-20 rounded-full bg-gradient-to-tr from-blue-500 to-cyan-400 flex items-center justify-center text-white font-bold text-3xl mb-4 shadow-lg">{identity.displayName.charAt(0)}</div>
-                                        <h3 className="font-bold text-2xl mb-1">{identity.displayName}</h3>
-                                        <div className="bg-black/60 px-6 py-4 rounded-2xl mt-4 mb-4 border border-white/5 w-full flex justify-between items-center cursor-pointer active:opacity-50 transition-opacity" onClick={() => { navigator.clipboard.writeText(identity.code); showToast("ID Disalin!", "ph-copy"); }}>
-                                            <p className="text-2xl font-mono tracking-[0.3em] text-[var(--primary)] font-bold">{identity.code}</p><i className="ph-bold ph-copy text-xl text-[var(--text-muted)]"></i>
-                                        </div>
-                                        <button onClick={() => triggerDialog("Hapus Data", "Kunci akan dihapus permanen.", executeLogout, true)} className="w-full py-4 rounded-xl mt-2 bg-red-500/10 text-[var(--danger)] font-bold text-[15px] btn-press border border-red-500/20">Log Out</button>
-                                    </>
-                                )}
-                                {activeModal === 'add' && (
-                                    <div className="w-full">
-                                        <div className="w-14 h-14 mx-auto bg-blue-500/10 rounded-full flex items-center justify-center mb-4"><i className="ph-fill ph-user-plus text-2xl text-[var(--primary)]"></i></div>
-                                        <h3 className="font-bold text-xl mb-4">Tambah Kontak</h3>
-                                        <form onSubmit={(e) => { e.preventDefault(); processAddFriend(addCodeInput); }}>
-                                            <input type="text" maxLength="8" placeholder="8-Digit ID Target" value={addCodeInput} onChange={e => setAddCodeInput(e.target.value)} className="w-full bg-black/60 border border-white/10 text-center font-mono text-xl tracking-[0.2em] px-4 py-4 rounded-2xl outline-none mb-4 uppercase text-white font-bold" />
-                                            <button type="submit" disabled={addCodeInput.length < 8} className={`w-full font-bold py-4 rounded-xl btn-press text-[var(--bg-dark)] bg-white mb-4 ${addCodeInput.length < 8 ? 'btn-disabled' : ''}`}>Sinkronisasi</button>
-                                        </form>
-                                    </div>
-                                )}
-                            </div>
-                        </div>
-                    )}
-
-                    {/* AUTH VIEWS (Diperbaiki & Dikembalikan penuh dari versi sebelumnya) */}
-                    {authView === "choice" && (
-                        <div className="h-screen w-full flex items-center justify-center p-6 bg-[var(--bg-dark)] relative z-10">
-                            <div className="w-full max-w-sm text-center">
-                                <div className="w-24 h-24 mx-auto bg-blue-500/10 rounded-[28px] flex items-center justify-center mb-6 border border-blue-500/20"><i className="ph-fill ph-shield-check text-5xl text-[var(--primary)]"></i></div>
-                                <h1 className="text-4xl font-bold mb-2 tracking-tight">Ghost Protocol</h1>
-                                <p className="text-sm mb-12 text-[var(--text-muted)]">Arsitektur E2EE Web Murni.</p>
-                                <div className="space-y-4">
-                                    <button onClick={() => setAuthView("register")} className="w-full py-4 rounded-2xl font-bold bg-[var(--primary)] text-white btn-press text-lg">Buat Identitas Baru</button>
-                                    <button onClick={() => setAuthView("login")} className="w-full py-4 rounded-2xl font-bold bg-[var(--surface)] text-white btn-press border border-[var(--border)] text-lg">Login Mnemonic</button>
-                                </div>
-                            </div>
-                        </div>
-                    )}
-
-                    {authView === "register" && (
-                        <div className="h-screen w-full flex items-center justify-center p-6 bg-[var(--bg-dark)] relative z-10">
-                            <button onClick={() => setAuthView("choice")} className="absolute top-6 left-4 text-[var(--primary)] flex items-center font-bold btn-press p-2"><i className="ph-bold ph-caret-left text-2xl"></i></button>
-                            <div className="w-full max-w-sm text-center">
-                                <h2 className="text-3xl font-bold mb-2">Display Name</h2>
-                                <p className="text-sm mb-8 text-[var(--text-muted)]">Alias publik Anda.</p>
-                                <form onSubmit={handleRegister}>
-                                    <input type="text" required placeholder="Alias" maxLength="20" className="w-full bg-[var(--surface)] border border-[var(--border)] text-white px-4 py-4 rounded-2xl outline-none mb-6 font-bold text-center text-xl" value={setupName} onChange={e => setSetupName(e.target.value)} />
-                                    <button type="submit" disabled={!setupName.trim()} className={`w-full py-4 rounded-2xl font-bold bg-[var(--primary)] text-white btn-press text-lg ${!setupName.trim() ? 'btn-disabled' : ''}`}>Generate RSA Keys</button>
-                                </form>
-                            </div>
-                        </div>
-                    )}
-
-                    {authView === "login" && (
-                        <div className="h-screen w-full flex items-center justify-center p-6 bg-[var(--bg-dark)] relative z-10">
-                            <button onClick={() => setAuthView("choice")} className="absolute top-6 left-4 text-[var(--primary)] flex items-center font-bold btn-press p-2"><i className="ph-bold ph-caret-left text-2xl"></i></button>
-                            <div className="w-full max-w-sm text-center">
-                                <h2 className="text-3xl font-bold mb-2">Restore Identity</h2>
-                                <p className="text-sm mb-6 text-[var(--text-muted)]">Format: ID.katakunci</p>
-                                <form onSubmit={handleRestore}>
-                                    <textarea required placeholder="A1B2C3D4.api-daun-..." rows="5" className="w-full bg-[var(--surface)] border border-[var(--border)] text-[16px] font-mono text-[var(--success)] px-5 py-4 rounded-2xl outline-none mb-6 resize-none leading-relaxed" value={recoveryKeyInput} onChange={e => setRecoveryKeyInput(e.target.value)} />
-                                    <button type="submit" disabled={!recoveryKeyInput.trim()} className={`w-full py-4 rounded-2xl font-bold bg-[var(--primary)] text-white btn-press text-lg ${!recoveryKeyInput.trim() ? 'btn-disabled' : ''}`}>Decrypt & Login</button>
-                                </form>
-                            </div>
-                        </div>
-                    )}
-
-                    {authView === "key_reveal" && (
-                        <div className="h-screen w-full flex items-center justify-center p-6 bg-[var(--bg-dark)] relative z-10">
-                            <div className="w-full max-w-sm text-center">
-                                <i className="ph-fill ph-warning text-6xl text-yellow-500 mb-6 drop-shadow-[0_0_15px_rgba(234,179,8,0.5)]"></i>
-                                <h2 className="text-2xl font-bold mb-2">Simpan Mnemonic Ini</h2>
-                                <p className="text-sm mb-6 text-[var(--text-muted)]">Teks ini SATU-SATUNYA alat login Anda kelak.</p>
-                                <div className="bg-[var(--surface)] p-6 rounded-3xl mb-8 border border-[var(--border)] text-left shadow-lg" onClick={() => {navigator.clipboard.writeText(generatedRecoveryKey); showToast("Disalin!", "ph-check-circle");}}>
-                                    <div className="text-[18px] font-mono text-[var(--success)] leading-relaxed selectable-text font-bold">{generatedRecoveryKey}</div>
-                                </div>
-                                <button onClick={() => setAuthView("main")} className="w-full py-4 rounded-2xl font-bold bg-[var(--primary)] text-white btn-press text-lg">Masuk ke Aplikasi</button>
-                            </div>
-                        </div>
-                    )}
-
-                    {/* MAIN CHAT UI DENGAN STORY TRAY (Dikembalikan penuh) */}
-                    {authView === "main" && (
-                        <React.Fragment>
-                            <div className={`w-full md:w-[360px] flex-shrink-0 flex flex-col border-r border-[var(--border)] transition-transform z-10 ${activeChat ? '-translate-x-full md:translate-x-0 absolute md:relative h-full' : 'translate-x-0 relative h-full'}`}>
-                                <div className="glass-panel px-5 pt-14 pb-2 sticky top-0 z-20 border-b border-[var(--border)]">
-                                    <div className="flex justify-between items-end mb-4">
-                                        <h1 className="text-4xl font-bold tracking-tight">Ghost</h1>
-                                        <div className="flex gap-3">
-                                            <button onClick={() => setActiveModal('profile')} className="w-10 h-10 rounded-full flex items-center justify-center bg-[var(--surface)] btn-press border border-white/10"><i className="ph-fill ph-user text-xl text-[var(--primary)]"></i></button>
-                                            <button onClick={() => setActiveModal('add')} className="w-10 h-10 rounded-full flex items-center justify-center bg-[var(--primary)] btn-press"><i className="ph-bold ph-plus text-xl text-white"></i></button>
-                                        </div>
-                                    </div>
-                                    
-                                    {/* STORY TRAY */}
-                                    <div className="flex gap-4 overflow-x-auto hide-scrollbar pb-3 pt-1">
-                                        <div className="flex flex-col items-center gap-1 cursor-pointer" onClick={openStoryCreator}>
-                                            <div className="w-[58px] h-[58px] rounded-full border-2 border-[var(--border)] border-dashed flex items-center justify-center text-[var(--primary)] bg-[var(--surface)] relative">
-                                                <i className="ph-bold ph-plus text-2xl"></i>
-                                            </div>
-                                            <span className="text-[11px] font-semibold text-[var(--text-muted)]">Add Story</span>
-                                        </div>
-                                        
-                                        {stories.map(group => (
-                                            <div key={group.senderCode} className="flex flex-col items-center gap-1 cursor-pointer" onClick={() => openStoryViewer(group)}>
-                                                <div className="story-ring">
-                                                    <div className="w-[54px] h-[54px] story-avatar-inner flex items-center justify-center text-white font-bold text-xl">
-                                                        {group.displayName.charAt(0)}
-                                                    </div>
-                                                </div>
-                                                <span className="text-[11px] font-semibold truncate w-16 text-center">{group.senderCode === identity.code ? 'Anda' : group.displayName}</span>
-                                            </div>
-                                        ))}
-                                    </div>
+                                    <div className="absolute bottom-0 right-0 bg-white rounded-full w-8 h-8 flex items-center justify-center border border-black shadow-lg text-black"><i className="ph-bold ph-camera text-sm"></i></div>
                                 </div>
                                 
-                                <div className="flex-1 overflow-y-auto hide-scrollbar">
-                                    {friends.map((f) => (
-                                        <div key={f.code} onClick={() => setActiveChat(f)} className="cursor-pointer px-5 py-3 flex items-center gap-4 hover:bg-white/5 border-b border-[var(--border)]">
-                                            <div className="w-14 h-14 rounded-full bg-gradient-to-tr from-blue-500 to-cyan-400 flex items-center justify-center font-bold text-xl text-white">{f.displayName.charAt(0)}</div>
-                                            <div className="flex-1"><h3 className="font-bold text-[18px]">{f.displayName}</h3><p className="text-[14px] text-[var(--text-muted)] font-mono">#{f.code}</p></div>
-                                        </div>
-                                    ))}
-                                </div>
+                                {isEditingProfile ? (
+                                    <form onSubmit={handleUpdateProfile} className="w-full flex gap-2 mb-6">
+                                        <input type="text" value={editProfileName} onChange={(e) => setEditProfileName(e.target.value)} className="w-full bg-custom-surface px-4 py-2 rounded-xl text-center outline-none font-bold text-[17px] text-custom-main" autoFocus />
+                                        <button type="submit" className="bg-[var(--ios-blue)] text-white px-4 rounded-xl font-bold btn-press">OK</button>
+                                    </form>
+                                ) : (
+                                    <div className="flex items-center gap-2 mb-6 cursor-pointer btn-press" onClick={()=>{setEditProfileName(identity.displayName); setIsEditingProfile(true);}}>
+                                        <h3 className="font-bold text-2xl tracking-tight">{identity?.displayName}</h3>
+                                        <i className="ph-fill ph-pencil-simple text-custom-muted"></i>
+                                    </div>
+                                )}
+
+                                <p className="text-xs text-custom-muted mb-2">ID Kriptografi Anda</p>
+                                <button onClick={()=>{copyToClipboard(identity.code); showToast("ID Tersalin", "ph-copy");}} className="bg-custom-surface px-4 py-3 rounded-2xl w-full flex justify-between items-center mb-6 btn-press">
+                                    <span className="font-mono text-[var(--ios-blue)] font-bold tracking-[0.2em]">{identity?.code}</span>
+                                    <i className="ph-bold ph-copy text-lg text-custom-muted"></i>
+                                </button>
+                                <div id="qr-container" className="bg-white p-3 rounded-2xl shadow-inner"></div>
                             </div>
-                            
-                            {/* CHAT AREA (Dikembalikan utuh dari versi sebelumnya) */}
-                            <div className={`flex-1 flex flex-col slide-panel absolute md:relative w-full h-full z-20 bg-[var(--bg-dark)] ${activeChat ? 'translate-x-0' : 'translate-x-full md:translate-x-0'}`}>
-                                {activeChat && (
-                                    <React.Fragment>
-                                        <div className="glass-panel px-3 pt-12 pb-3 flex items-center sticky top-0 z-30 border-b border-[var(--border)] shadow-sm">
-                                            {isSelecting ? (
-                                                <div className="w-full flex items-center justify-between px-2">
-                                                    <button onClick={() => {setIsSelecting(false); setSelectedMsgs([]);}} className="text-[var(--primary)] font-semibold text-lg btn-press">Batal</button>
-                                                    <span className="font-bold text-lg">{selectedMsgs.length} Terpilih</span>
-                                                    <div className="flex gap-4">
-                                                        <button onClick={() => { if(selectedMsgs.length>0) triggerDialog("Hapus Untuk Saya", "Pesan akan hilang dari layar Anda saja.", () => executeDelete('me'), true); }} className="text-[var(--danger)] btn-press"><i className="ph-fill ph-eye-slash text-2xl"></i></button>
-                                                        <button onClick={() => { if(selectedMsgs.length>0) triggerDialog("Hapus Untuk Semua", "Pesan akan dimusnahkan dari server secara permanen.", () => executeDelete('all'), true); }} className="text-[var(--danger)] btn-press"><i className="ph-fill ph-trash text-2xl"></i></button>
-                                                    </div>
-                                                </div>
-                                            ) : (
-                                                <div className="w-full flex items-center relative">
-                                                    <button onClick={() => setActiveChat(null)} className="md:hidden flex items-center py-2 pr-2 text-[var(--primary)] btn-press"><i className="ph-bold ph-caret-left text-3xl -ml-2"></i></button>
-                                                    <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-blue-500 to-cyan-400 flex items-center justify-center font-bold mr-3 text-white">{activeChat.displayName.charAt(0)}</div>
-                                                    <div className="flex flex-col"><span className="font-bold text-[16px] text-white leading-tight">{activeChat.displayName}</span></div>
-                                                    
-                                                    <div className="ml-auto flex gap-4 pr-1 relative">
-                                                        <button onClick={() => initiateCall('video')} className="text-[var(--primary)] btn-press"><i className="ph-fill ph-video-camera text-2xl"></i></button>
-                                                        <button onClick={() => initiateCall('audio')} className="text-[var(--primary)] btn-press"><i className="ph-fill ph-phone text-2xl"></i></button>
-                                                        <button onClick={() => setChatMenuOpen(!chatMenuOpen)} className="text-[var(--primary)] btn-press"><i className="ph-bold ph-dots-three-circle text-2xl"></i></button>
-                                                        
-                                                        {chatMenuOpen && (
-                                                            <div className="absolute top-10 right-0 w-48 bg-[var(--surface)] border border-[var(--border)] rounded-2xl shadow-2xl py-2 z-50">
-                                                                <button onClick={() => {setIsSelecting(true); setChatMenuOpen(false);}} className="w-full text-left px-4 py-3 border-b border-[var(--border)] font-semibold active:bg-white/10">Pilih & Hapus Pesan</button>
-                                                                <button onClick={() => triggerDialog("Bersihkan Obrolan", "Menghapus seluruh riwayat chat untuk Anda?", clearAllChats, true)} className="w-full text-left px-4 py-3 text-[var(--danger)] font-semibold active:bg-white/10">Bersihkan Chat</button>
-                                                            </div>
-                                                        )}
-                                                    </div>
-                                                </div>
-                                            )}
+                        </div>
+                    )}
+
+                    {/* MODAL ADD FRIEND WITH QR SCANNER */}
+                    {activeModal === 'add' && (
+                        <div className="fixed inset-0 z-[1100] flex items-center justify-center p-4 bg-black/50 modal-enter">
+                            <div className="ios-modal w-full max-w-sm rounded-[32px] p-6 flex flex-col items-center text-center dialog-enter relative">
+                                <button onClick={()=>{setActiveModal(null); setIsScanning(false);}} className="absolute top-5 right-5 w-8 h-8 bg-custom-surface rounded-full btn-press"><i className="ph ph-x"></i></button>
+                                <div className="w-16 h-16 mx-auto bg-custom-surface rounded-full flex items-center justify-center mb-4 mt-2"><i className="ph-fill ph-user-plus text-3xl text-[var(--ios-blue)]"></i></div>
+                                <h3 className="font-bold text-[22px] mb-4">Tambah Kontak</h3>
+                                
+                                {isScanning ? (
+                                    <div className="w-full mb-4">
+                                        <div id="reader" className="w-full rounded-[16px] overflow-hidden border border-custom bg-black min-h-[200px]"></div>
+                                        <button onClick={()=>setIsScanning(false)} className="mt-2 text-[var(--ios-red)] font-bold text-sm">Batal Scan</button>
+                                    </div>
+                                ) : (
+                                    <form onSubmit={processAddFriend} className="w-full">
+                                        <input type="text" maxLength="8" placeholder="8-Digit ID Target" value={addCodeInput} onChange={e => setAddCodeInput(e.target.value)} className="w-full bg-custom-surface border-custom text-center font-mono text-[22px] tracking-[0.2em] px-4 py-4 rounded-[16px] outline-none mb-4 uppercase font-bold" />
+                                        <div className="flex gap-2 mb-4">
+                                            <button type="submit" disabled={addCodeInput.length < 8} className={`flex-1 py-4 rounded-[16px] font-bold btn-press bg-[var(--ios-blue)] text-white text-[17px] ${addCodeInput.length < 8 ? 'opacity-50' : ''}`}>Verifikasi</button>
+                                            <button type="button" onClick={()=>setIsScanning(true)} className="w-16 bg-[var(--ios-blue)] rounded-[16px] flex items-center justify-center text-white btn-press"><i className="ph-bold ph-qr-code text-2xl"></i></button>
                                         </div>
+                                    </form>
+                                )}
+                            </div>
+                        </div>
+                    )}
 
-                                        <div className="flex-1 overflow-y-auto px-4 py-5 flex flex-col gap-[4px] hide-scrollbar relative" onClick={() => setChatMenuOpen(false)}>
-                                            {messages.map((msg, index, arr) => {
-                                                const isMe = msg.sender === identity.code;
-                                                const isLast = !arr[index + 1] || arr[index + 1].sender !== msg.sender;
-                                                const content = decryptedCache[msg.id];
-                                                const isSelected = selectedMsgs.includes(msg.id);
-
-                                                return (
-                                                    <div key={msg.id} onClick={() => isSelecting && toggleSelection(msg.id)} className={`flex w-full ${isMe ? 'justify-end' : 'justify-start'} ${isLast ? 'mb-4' : ''} ${isSelecting ? 'cursor-pointer' : ''}`}>
-                                                        {isSelecting && <div className="w-6 h-6 rounded-full border border-[var(--border)] mr-3 flex items-center justify-center mt-2">{isSelected && <div className="w-4 h-4 rounded-full bg-[var(--primary)]"></div>}</div>}
-                                                        <div className={`max-w-[80%] px-[16px] py-[10px] text-[16px] leading-[1.4] break-words overflow-hidden shadow-sm transition-colors ${isSelected ? 'msg-selected' : isMe ? 'bg-[var(--primary)] text-white rounded-[20px] rounded-br-[4px]' : 'bg-[var(--surface)] text-white rounded-[20px] rounded-bl-[4px] border border-white/5'}`}>
-                                                            {!content ? <i className="ph animate-spin ph-spinner"></i> : content.type === 'audio' ? <audio controls src={content.url} className="h-10 w-48 custom-audio"></audio> : content.type === 'image' ? <img src={content.url} className="w-full rounded-lg max-h-64 object-cover" alt="Image"/> : content.type === 'video' ? <video controls src={content.url} className="w-full rounded-lg max-h-64"></video> : content.text}
-                                                        </div>
-                                                    </div>
-                                                );
-                                            })}
-                                            <div ref={messagesEndRef} className="h-6"></div>
+                    {/* STORY CREATOR (FIXED LAYOUT) */}
+                    {storyMode === 'create' && (
+                        <div className="fixed inset-0 z-[1200] bg-[#111] flex flex-col modal-enter">
+                            <div className="absolute top-10 left-5 flex gap-4 z-50">
+                                <button onClick={closeStoryCreator} className="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center btn-press"><i className="ph-bold ph-x text-xl text-white"></i></button>
+                            </div>
+                            {/* FIX: Flexible container that won't overflow */}
+                            <div className="flex-1 flex flex-col items-center justify-center p-6 w-full mt-10">
+                                <input type="file" ref={storyImgInputRef} className="hidden" accept="image/*" onChange={handleStoryImageSelect} />
+                                <input type="file" ref={storyAudInputRef} className="hidden" accept="audio/*" onChange={handleStoryAudioSelect} />
+                                
+                                {/* FIX: Responsive Box for Image */}
+                                <div className="flex-1 w-full max-h-[50vh] bg-zinc-900 rounded-[32px] overflow-hidden relative shadow-2xl border border-white/10 flex items-center justify-center shrink-0">
+                                    {storyImageBlob ? (
+                                        <img src={URL.createObjectURL(storyImageBlob)} className="w-full h-full object-contain"/>
+                                    ) : (
+                                        <div className="text-center opacity-70 btn-press cursor-pointer" onClick={() => storyImgInputRef.current.click()}>
+                                            <i className="ph-fill ph-image text-6xl text-[var(--ios-blue)] mb-3"></i>
+                                            <p className="font-semibold text-white">Pilih Foto Lokal</p>
                                         </div>
+                                    )}
+                                    {storyImageBlob && <button onClick={() => storyImgInputRef.current.click()} className="absolute top-4 right-4 w-10 h-10 bg-black/60 rounded-full flex items-center justify-center btn-press"><i className="ph-bold ph-arrows-clockwise text-white"></i></button>}
+                                </div>
 
-                                        {!isSelecting && (
-                                            <div className="glass-panel p-3 pb-8 md:pb-4 z-30 border-t border-[var(--border)]">
-                                                <form onSubmit={handleSendText} className="flex relative items-end gap-3 max-w-4xl mx-auto">
-                                                    <input type="file" ref={fileInputRef} accept="image/*,video/*" className="hidden" onChange={handleFileUpload} />
-                                                    <button type="button" onClick={() => fileInputRef.current.click()} className="p-2 mb-1 text-[var(--text-muted)] btn-press"><i className="ph-bold ph-plus text-[26px]"></i></button>
-                                                    <div className="flex-1 relative">
-                                                        {isRecording ? (
-                                                            <div className="w-full bg-red-500/20 text-[var(--danger)] border border-red-500/50 rounded-3xl py-3 pl-4 text-[15px] font-bold animate-pulse text-center">Rekaman Suara E2EE Aktif...</div>
-                                                        ) : (
-                                                            <textarea value={inputText} onChange={(e) => setInputText(e.target.value)} placeholder="iMessage" rows="1" className="w-full bg-[var(--surface)] border border-[var(--border)] rounded-3xl py-[10px] pl-5 pr-12 text-[16px] outline-none text-white focus:border-[var(--text-muted)] transition-colors resize-none hide-scrollbar" style={{ minHeight: '44px', maxHeight: '120px' }} onInput={(e) => { e.target.style.height = 'auto'; e.target.style.height = (e.target.scrollHeight) + 'px'; }} />
-                                                        )}
-                                                    </div>
-                                                    {inputText.trim() ? (
-                                                        <button type="submit" className="w-[42px] h-[42px] mb-0.5 flex-shrink-0 rounded-full flex items-center justify-center bg-[var(--primary)] text-white btn-press shadow-md"><i className="ph-bold ph-arrow-up text-xl"></i></button>
-                                                    ) : (
-                                                        <button type="button" onPointerDown={startRecording} onPointerUp={stopRecording} onPointerLeave={stopRecording} onTouchStart={startRecording} onTouchEnd={stopRecording} className={`w-[42px] h-[42px] mb-0.5 flex-shrink-0 rounded-full flex items-center justify-center btn-press text-white transition-all shadow-md ${isRecording ? 'bg-[var(--danger)] scale-110 shadow-red-500/30' : 'bg-[var(--surface)] border border-[var(--border)]'}`}><i className={`ph-bold ph-microphone text-xl ${isRecording ? 'animate-pulse' : ''}`}></i></button>
-                                                    )}
-                                                </form>
+                                <div className="mt-6 flex flex-col items-center w-full shrink-0">
+                                    <div className="flex items-center gap-6">
+                                        {storyAudioBlob ? (
+                                            <div className="flex items-center gap-3 bg-zinc-800 pl-4 pr-1 py-1 rounded-full border border-[var(--ios-green)] text-white">
+                                                <i className="ph-fill ph-music-notes text-[var(--ios-green)]"></i>
+                                                <span className="text-sm font-semibold truncate w-24">Audio OK</span>
+                                                <button onClick={()=>setStoryAudioBlob(null)} className="w-8 h-8 rounded-full bg-red-500/20 text-red-500 flex items-center justify-center"><i className="ph-bold ph-trash"></i></button>
                                             </div>
+                                        ) : (
+                                            <button onClick={() => storyAudInputRef.current.click()} className="flex items-center gap-2 px-5 py-2.5 rounded-full bg-zinc-800 text-white btn-press">
+                                                <i className="ph-bold ph-music-note text-lg"></i> <span className="font-semibold text-sm">Pilih Musik Lokal</span>
+                                            </button>
                                         )}
+                                    </div>
+                                    
+                                    <p className="text-xs font-bold text-zinc-500 mt-4">- ATAU -</p>
+                                    
+                                    <div className="mt-2 flex items-center gap-6">
+                                        {storyAudioBlob && <div className="w-12"></div>}
+                                        <button 
+                                            onPointerDown={startStoryAudioRecord} onPointerUp={stopStoryAudioRecord} onPointerLeave={stopStoryAudioRecord}
+                                            className={`w-16 h-16 rounded-full flex items-center justify-center transition-all ${isRecordingStoryAudio ? 'bg-[var(--ios-red)] scale-110 pulse-record' : 'bg-[var(--ios-blue)]'}`}>
+                                            <i className={`ph-bold text-2xl text-white ${isRecordingStoryAudio ? 'ph-microphone' : 'ph-microphone'}`}></i>
+                                        </button>
+                                        {storyAudioBlob && <div className="w-12 h-12 flex items-center justify-center opacity-50"><i className="ph-fill ph-speaker-high text-xl text-white"></i></div>}
+                                    </div>
+                                    <p className="text-xs text-zinc-500 mt-2 font-mono font-bold tracking-widest">{isRecordingStoryAudio ? `Merekam... ${storyRecSeconds}s / 60s` : 'Tahan Suara'}</p>
+                                </div>
+                                <button onClick={publishMultipartStory} disabled={!storyImageBlob} className={`mt-6 w-full max-w-xs py-4 rounded-[16px] font-bold text-[17px] btn-press shrink-0 ${!storyImageBlob ? 'bg-zinc-800 text-zinc-600' : 'bg-[var(--ios-blue)] text-white'}`}>
+                                    Kirim Status E2EE
+                                </button>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* STORY VIEWER */}
+                    {storyMode === 'view' && (
+                        <div className="fixed inset-0 z-[1200] bg-black flex flex-col modal-enter">
+                            <div className="absolute top-12 left-0 w-full px-2 flex gap-1 z-[60]">{activeStoryGroup.map((_, i) => <div key={i} className="h-1 flex-1 bg-white/30 rounded-full overflow-hidden"><div className="h-full bg-white transition-all duration-50" style={{width: i < viewingStoryIdx ? '100%' : i === viewingStoryIdx ? `${storyProgress}%` : '0%'}}></div></div>)}</div>
+                            <div className="absolute top-14 left-4 z-[60] flex items-center gap-3">
+                                <div className="w-10 h-10 rounded-full overflow-hidden border border-white/20 flex items-center justify-center text-white font-bold bg-zinc-800">
+                                    {activeStoryGroup[0]?.avatarUrl ? <img src={activeStoryGroup[0].avatarUrl} className="w-full h-full object-cover"/> : (activeStoryGroup[0]?.displayName?.charAt(0) || '?')}
+                                </div>
+                                <span className="font-bold drop-shadow-lg text-white">{activeStoryGroup[0]?.senderCode === identity?.code ? 'My Story' : activeStoryGroup[0]?.displayName}</span>
+                            </div>
+                            <button onClick={closeStoryViewer} className="absolute top-14 right-4 z-[60] w-10 h-10 flex items-center justify-center btn-press"><i className="ph-bold ph-x text-2xl drop-shadow-md text-white"></i></button>
+
+                            <div className="flex-1 relative flex items-center justify-center overflow-hidden">
+                                {!currentStoryContent ? <i className="ph animate-spin ph-spinner text-4xl text-white"></i> : (
+                                    <React.Fragment>
+                                        <img src={currentStoryContent.imgUrl} className="w-full h-full object-contain"/>
+                                        {currentStoryContent.audUrl && <audio src={currentStoryContent.audUrl} autoPlay onEnded={nextStory} className="hidden" />}
                                     </React.Fragment>
                                 )}
                             </div>
-                        </React.Fragment>
+                            <div className="absolute inset-0 z-50 flex"><div className="w-1/3 h-full" onClick={prevStory}></div><div className="w-2/3 h-full" onClick={nextStory}></div></div>
+                        </div>
+                    )}
+
+                    {/* MAIN VIEW */}
+                    {authView === "choice" ? (
+                        <div className="w-full h-full flex items-center justify-center p-6 bg-custom-bg relative z-10 glass-switcher-enter">
+                            <div className="w-full max-w-sm text-center">
+                                <div className="w-24 h-24 mx-auto bg-blue-500/10 rounded-[28px] mb-6 flex items-center justify-center"><i className="ph-fill ph-shield-check text-[60px] text-[var(--ios-blue)]"></i></div>
+                                <h1 className="text-[32px] font-bold tracking-tight mb-2 text-custom-main">Ghost Protocol</h1>
+                                <p className="text-custom-muted mb-12">Private. Stateless. Encrypted.</p>
+                                <button onClick={()=>setAuthView("register")} className="w-full py-4 bg-[var(--ios-blue)] rounded-[16px] font-bold text-[18px] mb-4 btn-press text-white">Buat Identitas</button>
+                                <button onClick={()=>setAuthView("login")} className="w-full py-4 bg-[var(--surface-color)] border-custom rounded-[16px] font-bold text-[18px] btn-press text-custom-main">Login Mnemonic</button>
+                            </div>
+                        </div>
+                    ) : authView === "main" ? (
+                        <div id="main-view-container" className="w-full h-full flex flex-col bg-custom-bg relative">
+                            {/* [IMMERSIVE: DYNAMIC HEADER] */}
+                            <div className={`ios-glass px-6 pt-16 pb-4 absolute top-0 w-full z-20 aesthetic-transition ${uiHidden ? '-translate-y-full' : 'translate-y-0'}`}>
+                                <div className="flex justify-between items-center">
+                                    <h1 className="text-[40px] font-bold tracking-tight capitalize leading-none text-custom-main">{activeTab}</h1>
+                                    <div className="flex gap-3">
+                                        {activeTab === 'chats' && <button onClick={()=>setActiveModal('add')} className="w-11 h-11 bg-custom-surface rounded-full flex items-center justify-center btn-press"><i className="ph-bold ph-plus text-[22px] text-[var(--ios-blue)]"></i></button>}
+                                        {activeTab === 'status' && <button onClick={openStoryCreator} className="w-11 h-11 bg-custom-surface rounded-full flex items-center justify-center btn-press"><i className="ph-bold ph-camera text-[22px] text-[var(--ios-blue)]"></i></button>}
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* [GLASS SWITCHER TAB CONTENT] */}
+                            <div key={activeTab} className="scrollable-area w-full h-full pb-[120px] pt-32 glass-switcher-enter" onScroll={handleMainScroll}>
+                                {activeTab === 'chats' && friends.map(f => (
+                                    <div key={f.code} onClick={()=>setActiveChat(f)} className="px-6 py-4 flex items-center gap-4 active:bg-custom-surface transition-colors cursor-pointer border-b border-custom">
+                                        <div className="w-14 h-14 rounded-full bg-gradient-to-tr from-blue-500 to-cyan-400 flex items-center justify-center font-bold text-xl overflow-hidden shadow-sm text-white">{f.avatarUrl ? <img src={f.avatarUrl} className="w-full h-full object-cover"/> : (f.displayName?.charAt(0) || '?')}</div>
+                                        <div className="flex-1"><h3 className="font-bold text-[18px] text-custom-main">{f.displayName}</h3><p className="text-[14px] text-custom-muted font-mono mt-0.5">E2EE Locked • {f.code}</p></div>
+                                    </div>
+                                ))}
+                                {activeTab === 'status' && stories.map(g => (
+                                    <div key={g.senderCode} onClick={()=>{setActiveStoryGroup(g.items); setViewingStoryIdx(0); setStoryMode('view'); loadAndDecryptStory(g.items[0], g.senderCode);}} className="px-6 py-4 flex items-center gap-4 active:bg-custom-surface cursor-pointer border-b border-custom">
+                                        <div className="story-ring"><div className="w-14 h-14 story-avatar-inner flex items-center justify-center font-bold text-xl overflow-hidden text-custom-main">{g.avatarUrl ? <img src={g.avatarUrl} className="w-full h-full object-cover"/> : (g.displayName?.charAt(0) || '?')}</div></div>
+                                        <div><h3 className="font-bold text-[18px] text-custom-main">{g.senderCode === identity.code ? "Status Saya" : g.displayName}</h3><p className="text-[14px] text-custom-muted mt-0.5">{g.items.length} pembaruan terenkripsi</p></div>
+                                    </div>
+                                ))}
+                                {activeTab === 'calls' && <div className="h-full w-full flex items-center justify-center opacity-30 text-custom-muted flex-col mt-20"><i className="ph-fill ph-phone-slash text-[80px] mb-4"></i><p className="font-semibold text-lg">Log Panggilan Kosong</p></div>}
+                                {activeTab === 'settings' && (
+                                    <div className="px-6">
+                                        <div className="flex items-center gap-4 mb-8">
+                                            <div className="w-16 h-16 rounded-full bg-gradient-to-tr from-blue-500 to-cyan-400 flex items-center justify-center font-bold text-2xl overflow-hidden shadow-sm text-white">{identity?.avatarUrl ? <img src={identity.avatarUrl} className="w-full h-full object-cover"/> : (identity?.displayName?.charAt(0) || '?')}</div>
+                                            <div><h3 className="font-bold text-xl text-custom-main">{identity?.displayName}</h3><p className="text-sm font-mono text-custom-muted">{identity?.code}</p></div>
+                                        </div>
+                                        <div className="bg-custom-surface rounded-[20px] overflow-hidden mb-6">
+                                            <div className="px-5 py-4 border-b border-custom flex justify-between items-center cursor-pointer btn-press" onClick={toggleTheme}>
+                                                <div className="flex items-center gap-3"><i className="ph-fill ph-moon text-xl text-custom-main"></i><span className="font-semibold text-custom-main">Mode Gelap / Terang</span></div>
+                                                <div className={`w-12 h-6 rounded-full p-1 transition-colors ${appTheme==='dark'?'bg-[var(--ios-blue)]':'bg-gray-400'}`}>
+                                                    <div className={`w-4 h-4 bg-white rounded-full transition-transform ${appTheme==='dark'?'translate-x-6':'translate-x-0'}`}></div>
+                                                </div>
+                                            </div>
+                                            <div className="px-5 py-4 flex justify-between items-center cursor-pointer btn-press" onClick={()=>setActiveModal('profile')}>
+                                                <div className="flex items-center gap-3"><i className="ph-fill ph-user-circle text-xl text-custom-main"></i><span className="font-semibold text-custom-main">Edit Profil & QR</span></div>
+                                                <i className="ph-bold ph-caret-right text-custom-muted"></i>
+                                            </div>
+                                        </div>
+                                        <div className="bg-custom-surface rounded-[20px] overflow-hidden">
+                                            <div className="px-5 py-4 flex justify-between items-center cursor-pointer btn-press text-[var(--ios-red)]" onClick={()=>triggerDialog("Logout", "Data lokal akan dihapus.", executeLogout, true)}>
+                                                <div className="flex items-center gap-3"><i className="ph-fill ph-sign-out text-xl"></i><span className="font-semibold">Keluar Perangkat</span></div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* [IMMERSIVE: DYNAMIC DOCK] */}
+                            <div className={`dock-wrapper aesthetic-transition ${uiHidden ? 'dock-hidden' : ''}`}>
+                                <div className="floating-dock">
+                                    <div onClick={()=>setActiveTab('chats')} className="flex flex-col items-center gap-1 btn-press cursor-pointer w-14">
+                                        <div className={`flex items-center justify-center w-full h-10 ${activeTab === 'chats' ? 'dock-item-active' : 'dock-item-inactive'}`}><i className={`text-[24px] ${activeTab === 'chats' ? 'ph-fill' : 'ph'} ph-chat-circle`}></i></div>
+                                        <span className={`text-[10px] font-bold ${activeTab === 'chats' ? 'text-[var(--ios-blue)]' : 'text-custom-muted'}`}>Chats</span>
+                                    </div>
+                                    <div onClick={()=>setActiveTab('status')} className="flex flex-col items-center gap-1 btn-press cursor-pointer w-14">
+                                        <div className={`flex items-center justify-center w-full h-10 ${activeTab === 'status' ? 'dock-item-active' : 'dock-item-inactive'}`}><i className={`text-[24px] ${activeTab === 'status' ? 'ph-fill' : 'ph'} ph-circle-dashed`}></i></div>
+                                        <span className={`text-[10px] font-bold ${activeTab === 'status' ? 'text-[var(--ios-blue)]' : 'text-custom-muted'}`}>Status</span>
+                                    </div>
+                                    <div onClick={()=>setActiveTab('calls')} className="flex flex-col items-center gap-1 btn-press cursor-pointer w-14">
+                                        <div className={`flex items-center justify-center w-full h-10 ${activeTab === 'calls' ? 'dock-item-active' : 'dock-item-inactive'}`}><i className={`text-[24px] ${activeTab === 'calls' ? 'ph-fill' : 'ph'} ph-phone`}></i></div>
+                                        <span className={`text-[10px] font-bold ${activeTab === 'calls' ? 'text-[var(--ios-blue)]' : 'text-custom-muted'}`}>Calls</span>
+                                    </div>
+                                    <div onClick={()=>setActiveTab('settings')} className="flex flex-col items-center gap-1 btn-press cursor-pointer w-14">
+                                        <div className={`flex items-center justify-center w-full h-10 ${activeTab === 'settings' ? 'dock-item-active' : 'dock-item-inactive'}`}><i className={`text-[24px] ${activeTab === 'settings' ? 'ph-fill' : 'ph'} ph-gear`}></i></div>
+                                        <span className={`text-[10px] font-bold ${activeTab === 'settings' ? 'text-[var(--ios-blue)]' : 'text-custom-muted'}`}>Settings</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    ) : authView === "register" ? (
+                        <div className="w-full h-full flex items-center justify-center p-8 bg-custom-bg relative z-10 glass-switcher-enter">
+                            <button onClick={()=>setAuthView("choice")} className="absolute top-10 left-6 text-[var(--ios-blue)] flex items-center font-semibold btn-press"><i className="ph-bold ph-caret-left text-2xl -ml-1"></i> Kembali</button>
+                            <div className="w-full max-w-sm text-center">
+                                <h2 className="text-3xl font-bold mb-8 text-custom-main">Alias Nama</h2>
+                                <form onSubmit={handleRegister}>
+                                    <input type="text" required value={setupName} onChange={e=>setSetupName(e.target.value)} className="w-full bg-custom-surface py-4 rounded-[16px] text-center text-xl font-bold outline-none mb-6 border-custom text-custom-main" placeholder="Display Name"/>
+                                    <button type="submit" className="w-full py-4 bg-[var(--ios-blue)] rounded-[16px] font-bold text-lg text-white btn-press">Generate Keys</button>
+                                </form>
+                            </div>
+                        </div>
+                    ) : authView === "key_reveal" ? (
+                        <div className="w-full h-full flex items-center justify-center p-8 bg-custom-bg relative z-10 glass-switcher-enter">
+                            <div className="w-full max-w-sm text-center">
+                                <h2 className="text-2xl font-bold mb-2 text-custom-main">Simpan Mnemonic Anda</h2>
+                                <p className="text-custom-muted mb-6 text-sm">Klik teks di bawah untuk menyalin otomatis.</p>
+                                <div className="bg-custom-surface p-6 rounded-[24px] font-mono text-[var(--ios-green)] font-bold text-lg leading-relaxed mb-8 shadow-xl border-custom active:opacity-50 transition-opacity flex flex-col gap-4 cursor-pointer" onClick={()=>{copyToClipboard(generatedRecoveryKey); showToast("Mnemonic Disalin!", "ph-copy");}}>
+                                    <span className="break-words">{generatedRecoveryKey}</span>
+                                    <div className="text-xs text-[var(--ios-blue)] flex items-center justify-center gap-1 bg-[var(--ios-blue)]/10 py-2 rounded-full"><i className="ph-bold ph-copy"></i> Salin ke Clipboard</div>
+                                </div>
+                                <button onClick={()=>setAuthView("main")} className="w-full py-4 bg-[var(--ios-blue)] rounded-[16px] font-bold text-lg text-white btn-press">Selesai Disalin</button>
+                            </div>
+                        </div>
+                    ) : (
+                        <div className="w-full h-full flex items-center justify-center p-8 bg-custom-bg relative z-10 glass-switcher-enter">
+                            <button onClick={()=>setAuthView("choice")} className="absolute top-10 left-6 text-[var(--ios-blue)] flex items-center font-semibold btn-press"><i className="ph-bold ph-caret-left text-2xl -ml-1"></i> Kembali</button>
+                             <div className="w-full max-w-sm text-center">
+                                <h2 className="text-2xl font-bold mb-8 text-custom-main">Login Mnemonic</h2>
+                                <form onSubmit={handleRestore}>
+                                    <textarea required value={recoveryKeyInput} onChange={e=>setRecoveryKeyInput(e.target.value)} className="w-full bg-custom-surface py-4 px-6 rounded-[16px] text-center text-lg font-mono text-[var(--ios-green)] outline-none mb-6 border-custom" placeholder="Tempel kunci di sini" rows="4"></textarea>
+                                    <button type="submit" className="w-full py-4 bg-[var(--ios-blue)] rounded-[16px] font-bold text-lg text-white btn-press">Dekripsi & Masuk</button>
+                                </form>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Chat Area terpisah */}
+                    {activeChat && authView === 'main' && (
+                        <div className="absolute inset-0 z-50 flex flex-col slide-panel w-full h-full bg-custom-bg glass-switcher-enter">
+                            <div className={`ios-glass px-2 pt-12 pb-2 flex items-center absolute top-0 w-full z-30 aesthetic-transition ${uiHidden ? '-translate-y-full' : 'translate-y-0'}`}>
+                                <div className="w-full flex items-center">
+                                    <button onClick={() => setActiveChat(null)} className="flex items-center py-2 pr-2 text-[var(--ios-blue)] btn-press"><i className="ph-bold ph-caret-left text-[28px] -ml-1"></i></button>
+                                    <div className="w-9 h-9 rounded-full bg-gradient-to-tr from-blue-500 to-cyan-400 flex items-center justify-center font-bold text-xs ml-1 mr-2.5 overflow-hidden shadow-sm text-white">{activeChat?.avatarUrl ? <img src={activeChat.avatarUrl} className="w-full h-full object-cover"/> : (activeChat?.displayName?.charAt(0) || '?')}</div>
+                                    <div className="flex flex-col"><span className="font-bold text-[15px] leading-tight text-custom-main">{activeChat?.displayName || 'Unknown'}</span><span className="text-[11px] text-custom-muted font-medium">E2EE Secured</span></div>
+                                    <div className="ml-auto flex gap-4 pr-3">
+                                        <button onClick={() => initiateCall('video')} className="text-[var(--ios-blue)] btn-press"><i className="ph-fill ph-video-camera text-[26px]"></i></button>
+                                        <button onClick={() => initiateCall('audio')} className="text-[var(--ios-blue)] btn-press"><i className="ph-fill ph-phone text-[26px]"></i></button>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="scrollable-area w-full h-full px-4 py-4 flex flex-col gap-[2px] hide-scrollbar pb-[100px] pt-24" onScroll={handleMainScroll}>
+                                {messages.map((msg, index, arr) => {
+                                    const isMe = msg.sender === identity?.code;
+                                    const isLast = !arr[index + 1] || arr[index + 1].sender !== msg.sender;
+                                    const content = decryptedCache[msg.id];
+
+                                    return (
+                                        <div key={msg.id} className={`flex w-full ${isMe ? 'justify-end' : 'justify-start'} ${isLast ? 'mb-5' : ''}`}>
+                                            <div className={`max-w-[78%] px-[16px] py-[8px] text-[17px] leading-[1.3] break-words overflow-hidden
+                                                ${isMe ? `bg-[var(--ios-blue)] text-white bubble-enter ${isLast ? 'rounded-[20px] rounded-br-[4px] tail-right' : 'rounded-[20px]'}` : `bg-[var(--bubble-received)] text-custom-main bubble-enter-left ${isLast ? 'rounded-[20px] rounded-bl-[4px] tail-left' : 'rounded-[20px]'}`}`}>
+                                                {!content ? <i className="ph animate-spin ph-spinner"></i> : content.type === 'audio' ? <audio controls src={content.url} className="h-10 w-44"></audio> : content.type === 'image' ? <img src={content.url} className="rounded-xl max-h-56" /> : content.type === 'video' ? <video controls src={content.url} className="rounded-xl max-h-56"></video> : content.text}
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                                <div ref={messagesEndRef} className="h-6"></div>
+                            </div>
+
+                            <div className={`ios-glass p-2 pb-[calc(10px+env(safe-area-inset-bottom))] absolute bottom-0 w-full z-30 flex items-end gap-3 aesthetic-transition ${uiHidden ? 'translate-y-[150px]' : 'translate-y-0'}`}>
+                                <input type="file" ref={fileInputRef} accept="image/*,video/*" className="hidden" onChange={handleFileUpload} />
+                                <button type="button" onClick={() => fileInputRef.current.click()} className="p-2 mb-0.5 text-[var(--ios-gray)] active:text-[var(--ios-blue)] transition-colors"><i className="ph-bold ph-plus text-[26px]"></i></button>
+                                <form onSubmit={handleSendText} className="flex-1 relative mb-0.5">
+                                    {isRecording ? (
+                                        <div className="w-full bg-[var(--ios-red)] text-white rounded-full py-[7px] text-[16px] font-bold animate-pulse text-center leading-[24px] shadow-lg">Merekam Suara...</div>
+                                    ) : (
+                                        <input type="text" value={inputText} onChange={(e) => setInputText(e.target.value)} placeholder="iMessage" className="w-full rounded-full py-[7px] pl-[16px] pr-[40px] text-[17px] focus:outline-none transition-colors bg-custom-surface border-custom font-medium shadow-sm" style={{ lineHeight: '24px' }} />
+                                    )}
+                                    {inputText.trim() ? (
+                                        <button type="submit" className="absolute right-[4px] bottom-[4px] w-[30px] h-[30px] rounded-full flex items-center justify-center btn-press bg-[var(--ios-blue)] text-white"><i className="ph-bold ph-arrow-up text-[15px]"></i></button>
+                                    ) : (
+                                        <button type="button" onPointerDown={startRecording} onPointerUp={stopRecording} onPointerLeave={stopRecording} onTouchStart={startRecording} onTouchEnd={stopRecording} className={`absolute right-[8px] bottom-[6px] ${isRecording ? 'text-white' : 'text-custom-muted'}`}><i className={`ph-bold ph-microphone text-[24px]`}></i></button>
+                                    )}
+                                </form>
+                            </div>
+                        </div>
                     )}
                 </div>
             );
         };
-        const root = ReactDOM.createRoot(document.getElementById('root')); root.render(<App />);
+        const root = ReactDOM.createRoot(document.getElementById('root')); 
+        root.render(<ErrorBoundary><App /></ErrorBoundary>);
     </script>
 </body>
 </html>
